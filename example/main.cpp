@@ -1,3 +1,6 @@
+/* This is an example unit for testing and demonstrating basic usage of the
+pod_reflection library.*/
+
 #include <string>
 #include <iostream>
 
