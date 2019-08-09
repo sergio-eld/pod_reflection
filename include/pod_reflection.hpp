@@ -29,13 +29,13 @@ SOFTWARE.
 #include <tuple>
 #endif
 
-typedef std::tuple<bool, \
-    char, unsigned char, \
-    short, unsigned short, \
-    int, unsigned int, \
-    long, unsigned long, \
-    long long, unsigned long long, \
-    float, double, long double, long double \
+typedef std::tuple<bool, 
+    char, unsigned char, 
+    short, unsigned short, 
+    int, unsigned int, 
+    long, unsigned long, 
+    long long, unsigned long long, 
+    float, double, long double, long double 
     /* std::string will not compile as not constexpr*/> base_types;
 
 //define custom tuple to extend pod_map
