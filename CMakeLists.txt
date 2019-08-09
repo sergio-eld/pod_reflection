@@ -15,9 +15,8 @@ endif(hasParent)
 
 add_library(pod_reflection INTERFACE)
 
-target_include_directories(pod_reflection
-	INTERFACE
-	${CMAKE_CURRENT_SOURCE_DIR}/include
+target_include_directories(pod_reflection INTERFACE include/
+	#${CMAKE_CURRENT_SOURCE_DIR}/include
 	)
 
 
