@@ -29,6 +29,7 @@ SOFTWARE.
 #include <tuple>
 #endif
 
+
 typedef std::tuple<bool, 
     char, unsigned char, 
     short, unsigned short, 
@@ -45,13 +46,37 @@ typedef base_types pod_map;
 typedef decltype(std::tuple_cat(POD_EXTENDS(), base_types())) pod_map;
 #endif // !POD_EXTENDS
 
+template< size_t indx, class ...>
+struct cexpr_iter
+{
+	constexpr static size_t index = indx;
+};
+
+template <size_t iter, class tuple_list = pod_map>
+struct pod_iter;
+
+template <size_t iter, class ... types>
+struct pod_iter<iter, std::tuple<types...>>
+{
+	template <size_t it>
+	constexpr static auto get_type()
+	{
+		if constexpr (iter >= sizeof...(types))
+			return void();
+		else return std::tuple_element_t<it, std::tuple<types...>>();
+	}
+	using type = decltype(get_type<iter>());
+};
+
 //to generate index sequence
 template <size_t sz>
+using indx_seq = decltype(std::make_index_sequence<sz>());
+/*
 struct iseq_type
 {
     using indx_seq = decltype(std::make_index_sequence<sz>()) ;
 };
-
+*/
 template <class tuple1, class tuple2>
 using tuple_concat = decltype(std::tuple_cat(tuple1(), tuple2()));
 
@@ -77,7 +102,7 @@ class mem_layout_info<std::tuple<cl_args...>>
         if constexpr (sizeof...(indx) == arg_num)
             return cur_pad;
         else
-            return get_padding<arg_num, cur_pad + cur_size>(iseq_type<sizeof...(indx) + 1>::indx_seq());
+            return get_padding<arg_num, cur_pad + cur_size>(indx_seq<sizeof...(indx) + 1>());
     }
 
 public:
@@ -88,10 +113,10 @@ public:
     using fields_sizes = std::index_sequence<sizeof(cl_args)...>;
 
     template <size_t elem_num>
-    constexpr static size_t padding = get_padding<elem_num>(iseq_type<0>::indx_seq());
+    constexpr static size_t padding = get_padding<elem_num>(indx_seq<0>());
 
     constexpr static size_t total_args_size = get_sum<sizeof(cl_args)...>(),
-        class_size = padding<sizeof...(cl_args) - 1> +sizeof(arg_type< sizeof...(cl_args) - 1>); 
+        class_size = padding<sizeof...(cl_args) - 1> + sizeof(arg_type< sizeof...(cl_args) - 1>); 
 
 };
 
@@ -129,35 +154,43 @@ class refl_traits
     struct args_allowed_ < std::void_t<decltype(POD{ ubiq_constructor<indx>() ..., ubiq_explicit<T>() }) > , POD, T, std::index_sequence<indx... >> : public std::true_type
     {};
 
+
     template <size_t map_iter = 0, class ... prev_args>
     constexpr static auto get_types()
     {
-        static_assert(map_iter < std::tuple_size<types_map>::value, "Provided map could not deduce argument ¹");
+		if constexpr (std::is_same_v<pod_iter<map_iter>::type, void>)
+			//static_assert(false, "Provided map could not deduce argument ¹");
+			return cexpr_iter<sizeof...(prev_args)>();
+		else
+		{
+			typedef pod_iter<map_iter, types_map>::type iter_type;
 
-        if constexpr (sizeof...(prev_args) == fields_count())
-            return std::tuple<prev_args...>();
-        else if constexpr (is_valid_arg<std::tuple_element_t<map_iter, types_map>, sizeof...(prev_args)>::value)
-            return get_types<0, prev_args..., std::tuple_element_t<map_iter, types_map>>();
-        else return get_types<map_iter + 1, prev_args...>();
+			if constexpr (sizeof...(prev_args) == fields_count())
+				return std::tuple<prev_args...>();
+			else if constexpr (is_valid_arg<iter_type, sizeof...(prev_args)>::value)
+			    return get_types<0, prev_args..., iter_type>();
+			else return get_types<map_iter + 1, prev_args...>();
+		}
+
     }
 
 public:
     template <size_t pred_start = predict>
     constexpr static size_t fields_count()
     {
-        static_assert(std::is_aggregate_v<POD>, "Provided class can not be aggregate initialized!");
+//        static_assert(std::is_aggregate_v<POD>, "Provided class can not be aggregate initialized!");
         if constexpr (!args_allowed<pred_start>::value)
             return fields_count<pred_start - 1>();
         else return pred_start;
     }
 
     template <size_t predict_>
-    using args_allowed = args_allowed_<std::void_t<>, POD, typename iseq_type<predict_>::indx_seq>;
+    using args_allowed = args_allowed_<std::void_t<>, POD, indx_seq<predict_>>;
 
     template <class T, size_t arg_num>
-    using is_valid_arg = args_allowed_<std::void_t<>, POD, T, typename iseq_type<arg_num>::indx_seq>;
+    using is_valid_arg = args_allowed_<std::void_t<>, POD, T, indx_seq<arg_num>>;
 
-    using field_types = decltype(get_types());
+    using field_types = decltype(get_types<0>());	//vs 17 express does not allow default args
 
     template <size_t arg_num, class out = mem_layout_info<field_types>::arg_type<arg_num>>
     static const out& get(const POD& obj)
