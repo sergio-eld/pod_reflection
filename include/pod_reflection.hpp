@@ -53,11 +53,12 @@ struct cexpr_iter
 };
 
 template <size_t iter, class tuple_list = pod_map>
-struct pod_iter;
+class pod_iter;
 
 template <size_t iter, class ... types>
-struct pod_iter<iter, std::tuple<types...>>
+class pod_iter<iter, std::tuple<types...>>
 {
+    //TODO: can substitute this with std??
 	template <size_t it>
 	constexpr static auto get_type()
 	{
@@ -65,6 +66,8 @@ struct pod_iter<iter, std::tuple<types...>>
 			return void();
 		else return std::tuple_element_t<it, std::tuple<types...>>();
 	}
+
+public:
 	using type = decltype(get_type<iter>());
 };
 
