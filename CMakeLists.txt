@@ -13,11 +13,10 @@ if(hasParent)
 set(BUILD_EXAMPLE OFF)
 endif(hasParent)
 
-add_library(${PROJECT_NAME} INTERFACE)
+add_library(pod_reflection INTERFACE)
 
-target_include_directories(${PROJECT_NAME}
-	INTERFACE
-	${CMAKE_CURRENT_SOURCE_DIR}/include
+target_include_directories(pod_reflection INTERFACE include/
+	#${CMAKE_CURRENT_SOURCE_DIR}/include
 	)
 
 
@@ -28,7 +27,7 @@ add_executable(pod_relf_example
 	
 target_link_libraries(pod_relf_example
 	PRIVATE
-	${PROJECT_NAME}
+	pod_reflection
 	)
 	
 endif(BUILD_EXAMPLE)
