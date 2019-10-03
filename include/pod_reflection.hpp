@@ -111,9 +111,9 @@ class mem_layout_info<std::tuple<cl_args...>>
 public:
 
     template <size_t elem_num>
-    using arg_type = std::tuple_element_t<elem_num, std::tuple<cl_args...>>;
+    using arg_type = typename std::tuple_element_t<elem_num, std::tuple<cl_args...>>;
 
-    using fields_sizes = std::index_sequence<sizeof(cl_args)...>;
+    using fields_sizes = typename std::index_sequence<sizeof(cl_args)...>;
 
     template <size_t elem_num>
     constexpr static size_t padding = get_padding<elem_num>(indx_seq<0>());
@@ -193,7 +193,7 @@ public:
     template <class T, size_t arg_num>
     using is_valid_arg = args_allowed_<std::void_t<>, POD, T, indx_seq<arg_num>>;
 
-    using field_types = decltype(get_types<0>());	//vs 17 express does not allow default args
+    using field_types = typename decltype(get_types<0>());	//vs 17 express does not allow default args
 
     template <size_t arg_num, class out = mem_layout_info<field_types>::arg_type<arg_num>>
     static const out& get(const POD& obj)
