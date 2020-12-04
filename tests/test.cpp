@@ -7,7 +7,7 @@ struct abc
     int a;// = 4;
     float b;// = 8.15f;        //vs 17 express does not allow implicit conversion from double
     char c,// = 'c',
-            d;// = 'd';
+    d;// = 'd';
     int e;// = 16;
     double f;// = 23.42;
     std::string g;// = "oceanic";
@@ -24,10 +24,72 @@ using namespace eld;
 
 #include <iostream>
 
+struct none
+{
+    none(void *)
+    {}
+};
+
+template<size_t> struct tag_s
+{
+};
+
+constexpr size_t accumulate_decrement(tag_s<0>, size_t sum)
+{
+    return sum;
+}
+
+template<size_t i>
+constexpr size_t accumulate_decrement(tag_s<i>, size_t sum)
+{
+    return sum + accumulate_decrement(tag_s<i - 1>(), i - 1);
+}
+
+constexpr size_t sum_increment(tag_s<5>, size_t sum)
+{
+    return sum;
+}
+
+template<size_t i>
+constexpr size_t sum_increment(tag_s<i>, size_t sum)
+{
+    return sum + sum_increment(tag_s<i + 1>(), i + 1);
+}
+
+
+template<size_t i>
+constexpr size_t sum_increment(tag_s<i>, std::false_type)
+{
+    return i - 1;
+}
+
+template<size_t i>
+constexpr size_t sum_increment(tag_s<i>, std::true_type)
+{
+    return sum_increment(tag_s<i + 1>(), std::integral_constant<bool, (i < 5)>());
+}
+
+
 int main()
 {
+
+    detail::make_index_sequence<5> sdgb;
+
+    constexpr bool f = detail::is_aggregate_initializable_from_n_args<abc, 6>();
+
+    constexpr size_t zero = accumulate_decrement(tag_s<0>(), 16);
+    constexpr size_t sum = accumulate_decrement(tag_s<5>(), 5);
+
+    constexpr size_t sumIncr = sum_increment(tag_s<0>(), 0);
+
+    constexpr size_t fuck = sum_increment(tag_s<16>(), std::false_type());
+    constexpr size_t you = sum_increment(tag_s<0>(), std::true_type());
+
     decltype(abc{}) abc1;
-    decltype(abc{detail::convertible_to_any<0>()}) abc2;
+    decltype(abc{detail::convertible_to_any()}) abc2;
+
+    static_assert(std::is_same<std::tuple<int, double>, detail::tuple_push_back<std::tuple<int>, double>>::value,
+                  "Failed to push_back to tuple");
 
 //    static_assert(detail::is_aggregate_initializable_from_tuple<abc, std::tuple<int>>(), "Unexpected");
 
@@ -40,10 +102,16 @@ int main()
     static_assert(detail::is_aggregate_initializable<abc, int, float, char, char>(), "Unexpected");
     static_assert(detail::is_aggregate_initializable<abc, int, float, char, char, int>(), "Unexpected");
     static_assert(detail::is_aggregate_initializable<abc, int, float, char, char, int, double>(), "Unexpected");
-    static_assert(detail::is_aggregate_initializable<abc, int, float, char, char, int, double, std::string>(), "Unexpected");
+    static_assert(detail::is_aggregate_initializable<abc, int, float, char, char, int, double, std::string>(),
+                  "Unexpected");
     static_assert(detail::is_aggregate_initializable<abc, abc>(), "Unexpected");
 
-    // constexpr size_t argcAbc = detail::args_counter<abc>::value();
+    static_assert(detail::is_aggregate_initializable<abc, detail::convertible_to_any, detail::convertible_to_any>(),
+                  "Unexpected");
+
+    static_assert(eld::aggregate_args_counter<abc>() == 7, "Invalid arguments number!");
+    static_assert(eld::aggregate_args_counter<none>() ==
+                  std::numeric_limits<size_t>::max(), "Invalid arguments number!");
 
     return 0;
 }
