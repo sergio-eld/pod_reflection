@@ -86,7 +86,7 @@ int main()
     constexpr size_t you = sum_increment(tag_s<0>(), std::true_type());
 
     decltype(abc{}) abc1;
-    decltype(abc{detail::convertible_to_any()}) abc2;
+    decltype(abc{detail::implicitly_convertible()}) abc2;
 
     static_assert(std::is_same<std::tuple<int, double>, detail::tuple_push_back<std::tuple<int>, double>>::value,
                   "Failed to push_back to tuple");
@@ -106,12 +106,22 @@ int main()
                   "Unexpected");
     static_assert(detail::is_aggregate_initializable<abc, abc>(), "Unexpected");
 
-    static_assert(detail::is_aggregate_initializable<abc, detail::convertible_to_any, detail::convertible_to_any>(),
+    static_assert(detail::is_aggregate_initializable<abc, detail::implicitly_convertible, detail::implicitly_convertible>(),
                   "Unexpected");
 
     static_assert(eld::aggregate_args_counter<abc>() == 7, "Invalid arguments number!");
     static_assert(eld::aggregate_args_counter<none>() ==
                   std::numeric_limits<size_t>::max(), "Invalid arguments number!");
+
+    static_assert(eld::detail::is_pod_member_initializable_from_t<abc, int, 0>(),
+            "Unexpected result");
+    static_assert(eld::detail::is_pod_member_initializable_from_t<abc, float, 1>(),
+                  "Unexpected result");
+    static_assert(eld::detail::is_pod_member_initializable_from_t<abc, std::string, 6>(),
+                  "Unexpected result");
+
+    static_assert(!eld::detail::is_pod_member_initializable_from_t<abc, void, 0>(),
+                  "Unexpected result");
 
     return 0;
 }

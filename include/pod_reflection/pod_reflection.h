@@ -19,18 +19,29 @@ namespace eld
          * \TODO: description
          */
         // template<size_t>
-        struct convertible_to_any
+        struct implicitly_convertible
         {
-            // Any must be default constructable
+            // Any must be default constructable?
             template<typename Any>
             constexpr operator Any() const noexcept;
-//            {
-//                return Any();
-//            }
         };
 
         template<size_t s>
-        using convertible_to_any_s = convertible_to_any;
+        using implicitly_convertible_s = implicitly_convertible;
+
+        /*!
+ * \TODO: description
+ * @tparam Allowed
+ */
+        template<typename Allowed>
+        struct explicitly_convertible
+        {
+            template<typename Any>
+            constexpr operator Any() = delete;
+
+            constexpr operator Allowed() const noexcept;
+        };
+
 
         // index sequence only
         template<size_t ...>
@@ -51,19 +62,6 @@ namespace eld
 
         template<size_t N>
         using make_index_sequence = typename index_sequence_helper<N>::type;
-
-        /*!
-         * \TODO: description
-         * @tparam Allowed
-         */
-        template<typename Allowed>
-        struct convertible_to_one
-        {
-            template<typename Any>
-            constexpr operator Any() = delete;
-
-            constexpr operator Allowed() const noexcept;
-        };
 
         /*!
          * \TODO: description
@@ -102,25 +100,33 @@ namespace eld
             constexpr static size_t args_count = sizeof...(From);
         };
 
-        template<typename POD, typename Tuple,
-                bool = is_aggregate_initializable_from_tuple<POD, Tuple>()>
-        struct count_args : std::integral_constant<size_t, std::tuple_size<Tuple>::value - 1>
-        {
-        };
-
-
         template<typename POD, size_t N, typename = make_index_sequence<N>>
         struct is_aggregate_initializable_from_n_args;
 
         template<typename POD, size_t N, size_t ... Indx>
         struct is_aggregate_initializable_from_n_args<POD, N, index_sequence<Indx...>> :
-                is_aggregate_initializable<POD, convertible_to_any_s<Indx>...>
+                is_aggregate_initializable<POD, implicitly_convertible_s<Indx>...>
         {
         };
 
+        template<typename POD, typename T, size_t PODMemberIndex,
+                typename = void,
+                typename = make_index_sequence<PODMemberIndex>>
+        struct is_pod_member_initializable_from_t : std::false_type
+        {
+        };
+
+        template<typename POD, typename T, size_t PODMemberIndex,
+                size_t ... PrevArgs>
+        struct is_pod_member_initializable_from_t<POD,
+                T,
+                PODMemberIndex,
+                void_t<decltype(POD{implicitly_convertible_s<PrevArgs>()..., explicitly_convertible<T>()})>,
+                index_sequence<PrevArgs...>> : std::true_type
+        {
+        };
 
     }
-
 
     /*!
      * \TODO: description
@@ -163,5 +169,49 @@ namespace eld
         }
     };
 
-
+//    template<typename POD, size_t MemberIndex,
+//            typename Tuple,
+//            typename = detail::make_index_sequence<MemberIndex>>
+//    class get_pod_member_type;
+//
+//    template<typename POD,
+//            typename Tuple,
+//            // typename ... FeedArgs,
+//            size_t MemberIndex,
+//            size_t ... Indx>
+//    class get_pod_member_type<POD,
+//            MemberIndex,
+//            Tuple,
+//            // std::tuple<FeedArgs...>,
+//            detail::index_sequence<Indx...>>
+//    {
+//    public:
+//
+//    private:
+//
+//        template <size_t> struct tag_s{};
+//
+//        // out-of-tuple-range stop case method
+//        constexpr static size_t find_type(tag_s<std::tuple_size<Tuple>::value>,
+//                std::false_type)
+//        {
+//            return size_t() - 1;
+//        }
+//
+//        // stop case method
+//        template <size_t IndexFound>
+//        constexpr static size_t find_type(tag_s<IndexFound>, std::true_type)
+//        {
+//            return IndexFound;
+//        }
+//
+//        // recursive method
+//        template <size_t I>
+//        constexpr static size_t find_type(tag_s<I>, std::false_type)
+//        {
+//            using TupleTypeI = typename std::tuple_element<I, Tuple>::type;
+//            return find_type(tag_s<I + 1>(),
+//                    std::integral_constant<bool, std::is_same<>>)
+//        }
+//    };
 }
