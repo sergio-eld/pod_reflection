@@ -239,6 +239,84 @@ namespace eld
     template<size_t I, typename POD, typename TupleFeed>
     using pod_element_t = typename pod_element<I, POD, TupleFeed>::type;
 
-    /// TODO: get<indx, tuple_feed>(pod)
+    namespace detail
+    {
+        template<size_t I, typename POD, typename TupleFeed>
+        class pod_elem_offset
+        {
+            static_assert(!std::is_same<undeduced, pod_element_t<I, POD, TupleFeed>>::value,
+                          "Can't get an offset for an undeduced POD element!");
+        public:
+            constexpr static std::ptrdiff_t alignment = alignof(POD);
+
+            constexpr static std::ptrdiff_t value()
+            {
+                return get_value(tag_s<0>(), 0);
+            }
+
+        private:
+            // stop case
+            constexpr static std::ptrdiff_t get_value(tag_s<I>, size_t offset)
+            {
+                // TODO: implement with alignment
+                return !(offset % alignment) ||
+                       sizeof(pod_element_t<I, POD, TupleFeed>) <= offset % alignment ?
+                       offset :
+                       offset + offset % alignment;
+            }
+
+            // general recursion
+            template<size_t N>
+            constexpr static std::ptrdiff_t get_value(tag_s<N>, size_t offset)
+            {
+                static_assert(!std::is_same<undeduced, pod_element_t<N, POD, TupleFeed>>::value,
+                              "Can't get an offset for a POD element: failed to deduce one of POD elements' type!");
+
+                // TODO: implement with alignment
+                return get_value(tag_s<N + 1>(), !(offset % alignment) ||
+                                                 sizeof(pod_element_t<N, POD, TupleFeed>) <= offset % alignment ?
+                                                 offset + sizeof(pod_element_t<N, POD, TupleFeed>) :
+                                                 offset + sizeof(pod_element_t<N, POD, TupleFeed>) +
+                                                 offset % alignment);
+            }
+
+        };
+    }
+
+    /*!
+     * Extracts the Ith element from the POD structure
+     * @tparam I - index of an element to access
+     * @tparam TupleFeed - Tuple of types to be used as a feed to deduce POD elements
+     * @tparam POD
+     * @param pod
+     * @return
+     * \warning This function is UB. Need to write a workaround, i.e. - disable optimization
+     */
+    template<size_t I, typename TupleFeed, typename POD>
+    pod_element_t<I, POD, TupleFeed> &get(POD &pod)
+    {
+        static_assert(!std::is_same<undeduced, pod_element_t<I, POD, TupleFeed>>::value,
+                      "Can't get an undeduced POD element!");
+        return *reinterpret_cast<pod_element_t<I, POD, TupleFeed> *>(((std::ptrdiff_t) &pod +
+                                                                      detail::pod_elem_offset<I, POD, TupleFeed>::value()));
+    }
+
+    /*!
+     * Extracts the Ith element from the POD structure
+     * @tparam I - index of an element to access
+     * @tparam TupleFeed - Tuple of types to be used as a feed to deduce POD elements
+     * @tparam POD
+     * @param pod
+     * @return
+     * \warning This function is UB. Need to write a workaround, i.e. - disable optimization
+     */
+    template<size_t I, typename TupleFeed, typename POD>
+    const pod_element_t<I, POD, TupleFeed> &get(const POD &pod)
+    {
+        static_assert(!std::is_same<undeduced, pod_element_t<I, POD, TupleFeed>>::value,
+                      "Can't get an undeduced POD element!");
+        return *reinterpret_cast<const pod_element_t<I, POD, TupleFeed> *>(((std::ptrdiff_t) &pod +
+                                                                      detail::pod_elem_offset<I, POD, TupleFeed>::value()));
+    }
 
 }

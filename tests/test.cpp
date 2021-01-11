@@ -69,6 +69,13 @@ constexpr size_t sum_increment(tag_s<i>, std::true_type)
     return sum_increment(tag_s<i + 1>(), std::integral_constant<bool, (i < 5)>());
 }
 
+#pragma pack(push, 1)
+struct packed
+{
+    char a;
+    int b;
+};
+#pragma pack(pop)
 
 int main()
 {
@@ -146,7 +153,7 @@ int main()
             eld::detail::tuple_index_from_pod_member<0, abc, std::tuple<int>>::value();
     static_assert(int_indx_0 == 0, "");
     static_assert(std::is_same<int, eld::pod_element_t<0, abc, std::tuple<int>>>::value,
-            "");
+                  "");
 
     constexpr size_t int_indx_1 =
             eld::detail::tuple_index_from_pod_member<0, abc, std::tuple<double, int>>::value();
@@ -155,12 +162,41 @@ int main()
                   "");
 
     constexpr size_t float_indx =
-        eld::detail::tuple_index_from_pod_member<1, abc, std::tuple<int, float>>::value();
+            eld::detail::tuple_index_from_pod_member<1, abc, std::tuple<int, float>>::value();
 //    constexpr size_t float_indx_notfound =
 //        eld::detail::tuple_index_from_pod_member<1, abc, std::tuple<int>>::value();
 
     static_assert(std::is_same<std::string,
             eld::pod_element_t<6, abc, TupleFeedAbc>>::value, "Failed to deduce std::string in abc");
+
+    static_assert(eld::detail::pod_elem_offset<0, abc, TupleFeedAbc>::value() ==
+                  offsetof(abc, a), "Invalid offset for int a");
+    static_assert(eld::detail::pod_elem_offset<1, abc, TupleFeedAbc>::value() ==
+                  offsetof(abc, b), "Invalid offset for float b");
+    static_assert(eld::detail::pod_elem_offset<2, abc, TupleFeedAbc>::value() ==
+                  offsetof(abc, c), "Invalid offset for char c");
+    static_assert(eld::detail::pod_elem_offset<3, abc, TupleFeedAbc>::value() ==
+                  offsetof(abc, d), "Invalid offset for char d");
+    static_assert(eld::detail::pod_elem_offset<4, abc, TupleFeedAbc>::value() ==
+                  offsetof(abc, e), "Invalid offset for int e");
+    static_assert(eld::detail::pod_elem_offset<5, abc, TupleFeedAbc>::value() ==
+                  offsetof(abc, f), "Invalid offset for double f");
+    static_assert(eld::detail::pod_elem_offset<6, abc, TupleFeedAbc>::value() ==
+                  offsetof(abc, g), "Invalid offset for std::string g");
+
+    static_assert(eld::detail::pod_elem_offset<1, packed, TupleFeedAbc>::value() ==
+                  offsetof(packed, b), "Invalid offset for int b");
+
+    eld::detail::pod_elem_offset<1, abc, TupleFeedAbc>::value();
+    eld::detail::pod_elem_offset<2, abc, TupleFeedAbc>::value();
+    size_t offset_double_f = offsetof(abc, f),
+            offset_of_double_f_calc = eld::detail::pod_elem_offset<5, abc, TupleFeedAbc>::value(),
+            offset_string_g = offsetof(abc, g),
+            offset_of_string_g_calc = eld::detail::pod_elem_offset<6, abc, TupleFeedAbc>::value();
+
+    abc abcTest{};
+    abcTest.e = 16;
+    eld::get<4, TupleFeedAbc>(abcTest) = 24;
 
     return 0;
 }
