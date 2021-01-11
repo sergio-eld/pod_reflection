@@ -6,13 +6,15 @@ pod_reflection library.*/
 #include <tuple>
 
 #define POD_EXTENDS std::tuple<std::string>
+
 #include "pod_reflection.hpp"
 
 struct abc
 {
     int a = 4;
-    float b = (float)8.15;		//vs 17 express does not allow implicit conversion from double
-    char c = 'c', d = 'd';
+    float b = 8.15f;        //vs 17 express does not allow implicit conversion from double
+    char c = 'c',
+            d = 'd';
     int e = 16;
     double f = 23.42;
     std::string g = "oceanic";
@@ -20,14 +22,14 @@ struct abc
 
 struct dce
 {
-	int a = 4;
-	double b = 3.18;
-	abc c{};
+    int a = 4;
+    double b = 3.18;
+    abc c{};
 };
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-	std::void_t<int>;
+    std::void_t<int>;
     //assert number of args allowed for aggregate initialization
     static_assert(!refl_traits<abc>::args_allowed<16>::value, "Wrong output!");
     static_assert(!refl_traits<abc>::args_allowed<8>::value, "Wrong output!");
@@ -35,11 +37,11 @@ int main(int argc, char** argv)
     static_assert(refl_traits<abc>::args_allowed<6>::value, "Wrong output!");
     static_assert(refl_traits<abc>::args_allowed<5>::value, "Wrong output!");
 
-	
-	static_assert(refl_traits<abc>::is_valid_arg<int, 0>::value, "Wrong output!");
+
+    static_assert(refl_traits<abc>::is_valid_arg<int, 0>::value, "Wrong output!");
     static_assert(!refl_traits<abc>::is_valid_arg<int, 1>::value, "Wrong output!");
 
-	
+
     static_assert(refl_traits<abc>::is_valid_arg<float, 1>::value, "Wrong output!");
     static_assert(!refl_traits<abc>::is_valid_arg<float, 2>::value, "Wrong output!");
 
@@ -60,14 +62,15 @@ int main(int argc, char** argv)
     static_assert(refl_traits<abc>::fields_count() != 6, "Wrong output!");
 
 
-	std::cout << "Failed to deduce argument no. " << refl_traits<dce>::field_types::index << std::endl;
+    std::cout << "Failed to deduce argument no. " << refl_traits<dce>::field_types::index << std::endl;
     typedef refl_traits<abc>::field_types abc_types;
 
-    static_assert(std::is_same_v<abc_types, std::tuple<int, float, char, char, int, double, std::string>>, "Wrong output!");
+    static_assert(std::is_same_v<abc_types, std::tuple<int, float, char, char, int, double, std::string>>,
+                  "Wrong output!");
 
     static_assert(std::is_same_v<mem_layout_info<abc_types>::fields_sizes,
-        std::index_sequence<sizeof(abc::a), sizeof(abc::b), sizeof(abc::c), sizeof(abc::d), sizeof(abc::e), sizeof(abc::f), sizeof(abc::g)>>,
-        "Wrong output!");
+                          std::index_sequence<sizeof(abc::a), sizeof(abc::b), sizeof(abc::c), sizeof(abc::d), sizeof(abc::e), sizeof(abc::f), sizeof(abc::g)>>,
+                  "Wrong output!");
 
     mem_layout_info<abc_types>::total_args_size;
     static_assert(mem_layout_info<abc_types>::class_size == sizeof(abc), "Wrong output!");
@@ -88,7 +91,7 @@ int main(int argc, char** argv)
     std::cout << refl_traits<abc>::get<4>(abc_a) << std::endl;
     std::cout << refl_traits<abc>::get<5>(abc_a) << std::endl;
     std::cout << refl_traits<abc>::get<6>(abc_a) << std::endl;
-	
-	std::cin.get();
-	return 0;
+
+    std::cin.get();
+    return 0;
 }
