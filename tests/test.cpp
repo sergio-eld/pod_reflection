@@ -77,6 +77,21 @@ struct packed
 };
 #pragma pack(pop)
 
+struct MsgHeader
+{
+    uint32_t synchro;
+//    TransceiverType recipientID: 4;
+//    TransceiverType transmitterID: 4;
+//    MessageID msgId;
+    uint8_t reserved;
+    uint32_t dateSec;
+    uint32_t dateMicro;
+    uint8_t msgCounter;
+    uint32_t msgLength;
+    uint16_t checksum;
+//    MessageType msgType;
+};
+
 int main()
 {
 
@@ -231,6 +246,9 @@ int main()
 
     int count = eld::for_each<TupleFeedAbc>(printablePod, printing());
 
+    eld::pod_size<MsgHeader>();
+    static_assert(std::is_same<uint32_t,
+            eld::pod_element_t<0, MsgHeader, eld::basic_feed>>::value, "");
 
     return 0;
 }
