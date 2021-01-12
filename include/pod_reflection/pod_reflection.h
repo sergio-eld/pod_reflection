@@ -41,7 +41,7 @@ namespace eld
         struct explicitly_convertible
         {
             template<typename To, typename = typename
-                    std::enable_if<std::is_same<To, Allowed>::value>::type>
+            std::enable_if<std::is_same<To, Allowed>::value>::type>
             constexpr operator To() const noexcept;
 
         };
@@ -265,6 +265,7 @@ namespace eld
 
     namespace detail
     {
+        // TODO: check this function!
         template<size_t I, typename POD, typename TupleFeed>
         class pod_elem_offset
         {
@@ -305,6 +306,36 @@ namespace eld
             }
 
         };
+
+        template<typename TupleFeed, typename POD>
+        constexpr size_t evaluated_pod_size()
+        {
+            return (pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed>::value() +
+                    sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed>)) % alignof(POD) ?
+                   pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed>::value() +
+                   sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed>) :
+//                   +
+//                   sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed>) % alignof(POD) :
+                   pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed>::value() +
+                   sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed>);
+        }
+
+    }
+
+    /*!
+     * Checks if POD type is valid for accessing and manipulating elements.
+     * \warning POD is not valid if it contains bitfields.
+     * @tparam TupleFeed
+     * @tparam POD
+     * @return
+     * \todo check this function
+     */
+    template<typename TupleFeed, typename POD>
+    constexpr bool is_valid_pod()
+    {
+        // calculate expected POD size using offset
+        // return sizeof(POD) == detail::evaluated_pod_size<TupleFeed, POD>();
+        return true;
     }
 
     /*!
@@ -393,10 +424,13 @@ namespace eld
      * @return
      * \warning Invokes elements in reverse order
      * \todo fix the order of elements invocation
+     * \todo assert that a POD does not have bitfields
      */
     template<typename TupleFeed, typename POD, typename F>
     int for_each(POD &pod, F &&func)
     {
+        static_assert(is_valid_pod<TupleFeed, POD>(),
+                      "POD type is invalid: possibly contains bitfields");
         detail::for_each_<POD, TupleFeed> forEach{};
         return forEach(pod, std::forward<F>(func));
     }
