@@ -40,10 +40,10 @@ namespace eld
         template<typename Allowed>
         struct explicitly_convertible
         {
-            template<typename Any>
-            constexpr operator Any() = delete;
+            template<typename To, typename = typename
+                    std::enable_if<std::is_same<To, Allowed>::value>::type>
+            constexpr operator To() const noexcept;
 
-            constexpr operator Allowed() const noexcept;
         };
 
         // index sequence only
