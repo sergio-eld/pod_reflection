@@ -71,6 +71,10 @@ namespace eld
         {
         };
 
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
+
         template<typename T, typename ... From>
         struct is_aggregate_initialisable_<
                 void_t<decltype(T{std::declval<From>()...})>,
@@ -109,6 +113,10 @@ namespace eld
                 index_sequence<PrevArgs...>> : std::true_type
         {
         };
+
+#ifdef __GNUC__
+#pragma GCC diagnostic warning "-Wmissing-field-initializers"
+#endif
 
         /*!
      * Helper class to count maximum arguments for aggregate initialization of a POD type
@@ -331,6 +339,12 @@ namespace eld
         static_assert(!std::is_same<undeduced, pod_element_t<I, POD, TupleFeed>>::value,
                       "Can't get an undeduced POD element!");
         return *reinterpret_cast<const pod_element_t<I, POD, TupleFeed> *>(((std::ptrdiff_t) &pod +
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+                                                                      detail::pod_elem_offset<I, POD, TupleFeed>::value()));
+=======
+>>>>>>> Stashed changes
                                                                             detail::pod_elem_offset<I, POD, TupleFeed>::value()));
     }
 
@@ -366,7 +380,11 @@ namespace eld
             int operator()(POD &pod, F &&f)
             {
                 auto func = std::forward<F>(f);
+<<<<<<< Updated upstream
                 return fold(invoke(get<I, TupleFeed>(pod), f)...);
+=======
+                return fold(invoke(get<I, TupleFeed>(pod), func)...);
+>>>>>>> Stashed changes
             }
         };
 
@@ -390,6 +408,10 @@ namespace eld
     {
         detail::for_each_<POD, TupleFeed> forEach{};
         return forEach(pod, std::forward<F>(func));
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
     }
 
 }
