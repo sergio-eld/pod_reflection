@@ -72,6 +72,7 @@ namespace eld
         };
 
 #ifdef __GNUC__
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #endif
 
@@ -115,7 +116,7 @@ namespace eld
         };
 
 #ifdef __GNUC__
-#pragma GCC diagnostic warning "-Wmissing-field-initializers"
+#pragma GCC diagnostic pop
 #endif
 
         /*!
