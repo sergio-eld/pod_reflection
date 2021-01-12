@@ -131,7 +131,7 @@ int main()
     static_assert(!eld::detail::is_pod_member_initialisable_from_t<abc, void, 0>(),
                   "Unexpected result");
 
-    using TupleFeedAbc = std::tuple<int, float, double, char, std::string>;
+    using TupleFeedAbc = eld::extend_feed<std::string>;//std::tuple<int, float, double, char, std::string>;
 
 //    static_assert(eld::detail::tuple_index_from_pod_member<0, abc, std::tuple<int>>::value() == 0,
 //                  "");

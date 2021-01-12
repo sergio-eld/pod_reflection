@@ -188,6 +188,21 @@ namespace eld
 
     }
 
+    // TODO: add pointers?
+    using basic_feed = std::tuple<bool,
+            char, unsigned char,
+            short, unsigned short,
+            int, unsigned int,
+            long, unsigned long,
+            long long, unsigned long long,
+            float, double, long double, long double
+    >;
+
+    // TODO: filter duplicates
+    template <typename ... ArgsT>
+    using extend_feed = decltype(std::tuple_cat(basic_feed(),
+                                                std::tuple<ArgsT>()...));
+
 
     // PUBLIC classes
     /*!
