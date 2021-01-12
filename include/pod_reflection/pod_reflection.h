@@ -375,7 +375,7 @@ namespace eld
             int operator()(POD &pod, F &&f)
             {
                 auto func = std::forward<F>(f);
-                return fold(invoke(get<I, TupleFeed>(pod), f)...);
+                return fold(invoke(get<I, TupleFeed>(pod), func)...);
             }
         };
 
