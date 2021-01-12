@@ -110,13 +110,6 @@ int main()
     decltype(abc{}) abc1;
     decltype(abc{detail::implicitly_convertible()}) abc2;
 
-//    static_assert(std::is_same<std::tuple<int, double>, detail::tuple_push_back<std::tuple<int>, double>>::value,
-//                  "Failed to push_back to tuple");
-//
-////    static_assert(detail::is_aggregate_initialisable_from_tuple<abc, std::tuple<int>>(), "Unexpected");
-//
-//    constexpr bool b = detail::is_aggregate_initialisable_from_tuple<abc, std::tuple<int>>();
-//    std::cout << b << std::endl;
     static_assert(detail::is_aggregate_initialisable<abc>(), "Unexpected");
     static_assert(detail::is_aggregate_initialisable<abc, int>(), "Unexpected");
     static_assert(detail::is_aggregate_initialisable<abc, int, float>(), "Unexpected");
@@ -136,6 +129,8 @@ int main()
     static_assert(eld::pod_size<none>() ==
                   std::numeric_limits<size_t>::max(), "Invalid arguments number!");
 
+
+    static_assert(std::is_same<abc, decltype(abc{eld::detail::explicitly_convertible<int>()})>::value, "");
     static_assert(eld::detail::is_pod_member_initialisable_from_t<abc, int, 0>(),
                   "Unexpected result");
     static_assert(eld::detail::is_pod_member_initialisable_from_t<abc, float, 1>(),
@@ -147,20 +142,6 @@ int main()
                   "Unexpected result");
 
     using TupleFeedAbc = eld::extend_feed<std::string>;//std::tuple<int, float, double, char, std::string>;
-
-//    static_assert(eld::detail::tuple_index_from_pod_member<0, abc, std::tuple<int>>::value() == 0,
-//                  "");
-//    static_assert(eld::detail::tuple_index_from_pod_member<0, abc, std::tuple<double, int>>::value() == 1,
-//                  "");
-//    static_assert(eld::detail::tuple_index_from_pod_member<0, abc, std::tuple<double>>::value() == (size_t) -1,
-//                  "");
-//
-//    static_assert(eld::detail::tuple_index_from_pod_member<1, abc, std::tuple<float>>::value() == 0,
-//                  "");
-//    static_assert(eld::detail::tuple_index_from_pod_member<1, abc, std::tuple<int, float>>::value() == 1,
-//                  "");
-//    static_assert(eld::detail::tuple_index_from_pod_member<1, abc, std::tuple<double>>::value() == (size_t) -1,
-//                  "");
 
     // successful search
 
@@ -178,8 +159,6 @@ int main()
 
     constexpr size_t float_indx =
             eld::detail::tuple_index_from_pod_member<1, abc, std::tuple<int, float>>::value();
-//    constexpr size_t float_indx_notfound =
-//        eld::detail::tuple_index_from_pod_member<1, abc, std::tuple<int>>::value();
 
     static_assert(std::is_same<std::string,
             eld::pod_element_t<6, abc, TupleFeedAbc>>::value, "Failed to deduce std::string in abc");

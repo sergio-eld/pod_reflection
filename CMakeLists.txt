@@ -35,12 +35,20 @@ if (BUILD_EXAMPLE)
 #            CXX_STANDARD_REQUIRED TRUE
 #            )
 
-	add_executable(test.reflection tests/test.cpp)
-	target_link_libraries(test.reflection PRIVATE pod_reflection)
-	set_target_properties(test.reflection
+	add_executable(test.reflection_11 tests/test.cpp)
+	target_link_libraries(test.reflection_11 PRIVATE pod_reflection)
+	set_target_properties(test.reflection_11
 			PROPERTIES
 			CXX_STANDARD 11
 			CXX_STANDARD_REQUIRED TRUE
 			)
+
+add_executable(test.reflection_14 tests/test.cpp)
+target_link_libraries(test.reflection_14 PRIVATE pod_reflection)
+set_target_properties(test.reflection_14
+		PROPERTIES
+		CXX_STANDARD 14
+		CXX_STANDARD_REQUIRED TRUE
+		)
 
 endif (BUILD_EXAMPLE)
