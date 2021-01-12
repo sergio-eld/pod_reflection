@@ -198,5 +198,39 @@ int main()
     abcTest.e = 16;
     eld::get<4, TupleFeedAbc>(abcTest) = 24;
 
+    constexpr int folded = eld::detail::fold(1, 1, 1, 1);
+    static_assert(folded == 4, "Failed to fold expressions");
+
+    struct printable_pod
+    {
+        int a;
+        float b;
+        std::string d;
+    };
+
+    struct printing
+    {
+        void operator()(int i)
+        {
+            std::cout << "int = " << i << std::endl;
+        }
+
+        void operator()(float f)
+        {
+            std::cout << "float = " << f << std::endl;
+        }
+
+        void operator()(const std::string &str)
+        {
+            std::cout << "std::string = " << str << std::endl;
+        }
+
+    };
+
+    printable_pod printablePod{4, 8.1516, "23 42"};
+
+    int count = eld::for_each<TupleFeedAbc>(printablePod, printing());
+
+
     return 0;
 }

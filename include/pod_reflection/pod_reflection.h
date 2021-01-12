@@ -199,7 +199,7 @@ namespace eld
     >;
 
     // TODO: filter duplicates
-    template <typename ... ArgsT>
+    template<typename ... ArgsT>
     using extend_feed = decltype(std::tuple_cat(basic_feed(),
                                                 std::tuple<ArgsT>()...));
 
@@ -331,7 +331,65 @@ namespace eld
         static_assert(!std::is_same<undeduced, pod_element_t<I, POD, TupleFeed>>::value,
                       "Can't get an undeduced POD element!");
         return *reinterpret_cast<const pod_element_t<I, POD, TupleFeed> *>(((std::ptrdiff_t) &pod +
-                                                                      detail::pod_elem_offset<I, POD, TupleFeed>::value()));
+                                                                            detail::pod_elem_offset<I, POD, TupleFeed>::value()));
+    }
+
+    namespace detail
+    {
+        constexpr int fold(int f)
+        {
+            return f;
+        }
+
+        // TODO: fix reverse order
+        template<typename First, typename ... Last>
+        constexpr int fold(First first, Last ... last)
+        {
+            return first + fold(last...);
+        }
+
+        template<typename POD, typename TupleFeed, typename = make_index_sequence<(pod_size<POD>())>>
+        struct for_each_;
+
+        template<typename POD, typename TupleFeed, size_t ... I>
+        struct for_each_<POD, TupleFeed, index_sequence<I...>>
+        {
+            template<typename E, typename F>
+            int invoke(E &pod_elem, F &f)
+            {
+                f(pod_elem);
+                return 1;
+            }
+
+            // TODO: use recursion
+            template<typename F>
+            int operator()(POD &pod, F &&f)
+            {
+                auto func = std::forward<F>(f);
+                return fold(invoke(get<I, TupleFeed>(pod), f)...);
+            }
+        };
+
+        // TODO: for_each deduced, that is skipping undeduced elements
+    }
+
+    /*!
+     * Invokes functor of type F for each element in a given POD. TupleFeed must be
+     * provided for elements deduction
+     * @tparam TupleFeed
+     * @tparam POD
+     * @tparam F
+     * @param pod
+     * @param func
+     * @return
+     * \warning Invokes elements in reverse order
+     * \todo fix the order of elements invocation
+     */
+    template<typename TupleFeed, typename POD, typename F>
+    int for_each(POD &pod, F &&func)
+    {
+        detail::for_each_<POD, TupleFeed> forEach{};
+        return forEach(pod, std::forward<F>(func));
     }
 
 }
