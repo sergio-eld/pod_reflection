@@ -189,8 +189,8 @@ int main()
     size_t int_offset = offset_char_d + sizeof(char) +
             align_abc - (offset_char_d + sizeof(char)) % align_abc;
 
-//    static_assert(eld::detail::pod_elem_offset<4, abc, TupleFeedAbc>::value() ==
-//                  offsetof(abc, e), "Invalid offset for int e");
+    static_assert(eld::detail::pod_elem_offset<4, abc, TupleFeedAbc>::value() ==
+                  offsetof(abc, e), "Invalid offset for int e");
     static_assert(eld::detail::pod_elem_offset<5, abc, TupleFeedAbc>::value() ==
                   offsetof(abc, f), "Invalid offset for double f");
     static_assert(eld::detail::pod_elem_offset<6, abc, TupleFeedAbc>::value() ==
