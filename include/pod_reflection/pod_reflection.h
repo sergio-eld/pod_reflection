@@ -198,8 +198,9 @@ namespace eld
     }
 
     // TODO: add pointers?
-    using basic_feed = std::tuple<bool,
-            char, unsigned char,
+    using basic_feed = std::tuple<bool, unsigned,
+            signed,
+            char, signed char, unsigned char,
             short, unsigned short,
             int, unsigned int,
             long, unsigned long,
@@ -350,6 +351,7 @@ namespace eld
      * @tparam POD
      * @return
      * \todo check this function
+     * \todo return false if some of the elements have not been deduced
      */
     template<typename TupleFeed, typename POD>
     constexpr bool is_valid_pod()
