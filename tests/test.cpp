@@ -178,8 +178,19 @@ int main()
                   offsetof(abc, c), "Invalid offset for char c");
     static_assert(eld::detail::pod_elem_offset<3, abc, TupleFeedAbc>::value() ==
                   offsetof(abc, d), "Invalid offset for char d");
-    static_assert(eld::detail::pod_elem_offset<4, abc, TupleFeedAbc>::value() ==
-                  offsetof(abc, e), "Invalid offset for int e");
+    size_t offset_char_d = eld::detail::pod_elem_offset<3, abc, TupleFeedAbc>::value();
+    size_t offset_int_e = eld::detail::pod_elem_offset<4, abc, TupleFeedAbc>::value();
+
+    bool offset_remainder = !((offset_char_d + sizeof(char)) % alignof(abc));
+    size_t align_abc = 4;//alignof(abc);
+    size_t remainder = (offset_char_d + sizeof(char)) % align_abc;
+    size_t remaining_bytes = align_abc - remainder;
+    bool int_fits = remaining_bytes >= sizeof(int);
+    size_t int_offset = offset_char_d + sizeof(char) +
+            align_abc - (offset_char_d + sizeof(char)) % align_abc;
+
+//    static_assert(eld::detail::pod_elem_offset<4, abc, TupleFeedAbc>::value() ==
+//                  offsetof(abc, e), "Invalid offset for int e");
     static_assert(eld::detail::pod_elem_offset<5, abc, TupleFeedAbc>::value() ==
                   offsetof(abc, f), "Invalid offset for double f");
     static_assert(eld::detail::pod_elem_offset<6, abc, TupleFeedAbc>::value() ==
@@ -256,10 +267,11 @@ int main()
     {
         int a;
         char c;
+        std::string d;
     };
 
-//    static_assert(sizeof(dummy) == eld::detail::evaluated_pod_size<TupleFeedAbc, dummy>(),
-//            "");
+    static_assert(sizeof(dummy) == eld::detail::evaluated_pod_size<TupleFeedAbc, dummy>(),
+            "");
 
     sizeof(dummy);
 
