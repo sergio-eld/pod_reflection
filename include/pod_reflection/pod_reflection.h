@@ -269,7 +269,9 @@ namespace eld
         template<typename POD, typename TupleFeed = basic_feed>
         constexpr size_t pod_packing()
         {
-            return alignof(POD);
+            return sizeof(POD) % 4 ?
+                   sizeof(POD) % 4 :
+                   4;//alignof(POD);
         }
 
         // TODO: check this function!
