@@ -355,8 +355,7 @@ namespace eld
     constexpr bool is_valid_pod()
     {
         // calculate expected POD size using offset
-        // return sizeof(POD) == detail::evaluated_pod_size<TupleFeed, POD>();
-        return true;
+        return sizeof(POD) == detail::evaluated_pod_size<TupleFeed, POD>();
     }
 
     /*!
@@ -371,6 +370,7 @@ namespace eld
     template<size_t I, typename TupleFeed, typename POD>
     pod_element_t<I, POD, TupleFeed> &get(POD &pod)
     {
+        static_assert(is_valid_pod<TupleFeed, POD>(), "Invalid POD struct: possibly contains bitfields");
         static_assert(!std::is_same<undeduced, pod_element_t<I, POD, TupleFeed>>::value,
                       "Can't get an undeduced POD element!");
         return *reinterpret_cast<pod_element_t<I, POD, TupleFeed> *>(((std::ptrdiff_t) &pod +
@@ -389,6 +389,7 @@ namespace eld
     template<size_t I, typename TupleFeed, typename POD>
     const pod_element_t<I, POD, TupleFeed> &get(const POD &pod)
     {
+        static_assert(is_valid_pod<TupleFeed, POD>(), "Invalid POD struct: possibly contains bitfields");
         static_assert(!std::is_same<undeduced, pod_element_t<I, POD, TupleFeed>>::value,
                       "Can't get an undeduced POD element!");
         return *reinterpret_cast<const pod_element_t<I, POD, TupleFeed> *>(((std::ptrdiff_t) &pod +
