@@ -77,6 +77,13 @@ struct packed
 };
 #pragma pack(pop)
 
+struct invalid_pod
+{
+    int a : 2;
+    int b : 2;
+    char c;
+};
+
 struct MsgHeader
 {
     uint32_t synchro;
@@ -171,8 +178,19 @@ int main()
                   offsetof(abc, c), "Invalid offset for char c");
     static_assert(eld::detail::pod_elem_offset<3, abc, TupleFeedAbc>::value() ==
                   offsetof(abc, d), "Invalid offset for char d");
-    static_assert(eld::detail::pod_elem_offset<4, abc, TupleFeedAbc>::value() ==
-                  offsetof(abc, e), "Invalid offset for int e");
+    size_t offset_char_d = eld::detail::pod_elem_offset<3, abc, TupleFeedAbc>::value();
+    size_t offset_int_e = eld::detail::pod_elem_offset<4, abc, TupleFeedAbc>::value();
+
+    bool offset_remainder = !((offset_char_d + sizeof(char)) % alignof(abc));
+    size_t align_abc = 4;//alignof(abc);
+    size_t remainder = (offset_char_d + sizeof(char)) % align_abc;
+    size_t remaining_bytes = align_abc - remainder;
+    bool int_fits = remaining_bytes >= sizeof(int);
+    size_t int_offset = offset_char_d + sizeof(char) +
+            align_abc - (offset_char_d + sizeof(char)) % align_abc;
+
+//    static_assert(eld::detail::pod_elem_offset<4, abc, TupleFeedAbc>::value() ==
+//                  offsetof(abc, e), "Invalid offset for int e");
     static_assert(eld::detail::pod_elem_offset<5, abc, TupleFeedAbc>::value() ==
                   offsetof(abc, f), "Invalid offset for double f");
     static_assert(eld::detail::pod_elem_offset<6, abc, TupleFeedAbc>::value() ==
@@ -180,6 +198,14 @@ int main()
 
     static_assert(eld::detail::pod_elem_offset<1, packed, TupleFeedAbc>::value() ==
                   offsetof(packed, b), "Invalid offset for int b");
+
+    struct not_packed
+    {
+        char a;
+        int b;
+    };
+    static_assert(eld::detail::pod_elem_offset<1, not_packed, TupleFeedAbc>::value() ==
+                  offsetof(not_packed, b), "Invalid offset for int b");
 
     eld::detail::pod_elem_offset<1, abc, TupleFeedAbc>::value();
     eld::detail::pod_elem_offset<2, abc, TupleFeedAbc>::value();
@@ -228,6 +254,36 @@ int main()
     eld::pod_size<MsgHeader>();
     static_assert(std::is_same<uint32_t,
             eld::pod_element_t<0, MsgHeader, eld::basic_feed>>::value, "");
+
+    sizeof(std::string);
+
+    static_assert(sizeof(abc) == eld::detail::evaluated_pod_size<TupleFeedAbc, abc>(),
+            "abc evaluated size invalid");
+    static_assert(sizeof(packed) == eld::detail::evaluated_pod_size<TupleFeedAbc, packed>(),
+                  "packed evaluated size invalid");
+
+    // test tail, size must be 8
+    struct dummy
+    {
+        int a;
+        char c;
+        std::string d;
+    };
+
+    static_assert(sizeof(dummy) == eld::detail::evaluated_pod_size<TupleFeedAbc, dummy>(),
+            "");
+
+    sizeof(dummy);
+
+    size_t sizePrintablePod =
+        eld::detail::evaluated_pod_size<TupleFeedAbc, printable_pod>(),
+                sizeInvalidPod =
+            eld::detail::evaluated_pod_size<TupleFeedAbc, invalid_pod>(),
+                    sizeDummy = eld::detail::evaluated_pod_size<TupleFeedAbc, dummy>();
+
+
+
+    // static_assert(eld::is_valid_pod<TupleFeedAbc, invalid_pod>(), "");
 
     return 0;
 }

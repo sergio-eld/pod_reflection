@@ -41,7 +41,7 @@ namespace eld
         struct explicitly_convertible
         {
             template<typename To, typename = typename
-                    std::enable_if<std::is_same<To, Allowed>::value>::type>
+            std::enable_if<std::is_same<To, Allowed>::value>::type>
             constexpr operator To() const noexcept;
 
         };
@@ -265,13 +265,28 @@ namespace eld
 
     namespace detail
     {
+
+        template<typename POD, typename TupleFeed = basic_feed>
+        constexpr size_t pod_packing()
+        {
+            return alignof(POD);
+        }
+
+        // TODO: check this function!
         template<size_t I, typename POD, typename TupleFeed>
         class pod_elem_offset
         {
             static_assert(!std::is_same<undeduced, pod_element_t<I, POD, TupleFeed>>::value,
                           "Can't get an offset for an undeduced POD element!");
+
+            template<size_t Indx>
+            constexpr static size_t pod_elem_size()
+            {
+                return sizeof(pod_element_t<Indx, POD, TupleFeed>);
+            }
+
         public:
-            constexpr static std::ptrdiff_t alignment = alignof(POD);
+            constexpr static std::ptrdiff_t packing = pod_packing<POD, TupleFeed>();
 
             constexpr static std::ptrdiff_t value()
             {
@@ -282,11 +297,7 @@ namespace eld
             // stop case
             constexpr static std::ptrdiff_t get_value(tag_s<I>, size_t offset)
             {
-                // TODO: implement with alignment
-                return !(offset % alignment) ||
-                       sizeof(pod_element_t<I, POD, TupleFeed>) <= offset % alignment ?
-                       offset :
-                       offset + offset % alignment;
+                return offset;
             }
 
             // general recursion
@@ -296,15 +307,54 @@ namespace eld
                 static_assert(!std::is_same<undeduced, pod_element_t<N, POD, TupleFeed>>::value,
                               "Can't get an offset for a POD element: failed to deduce one of POD elements' type!");
 
-                // TODO: implement with alignment
-                return get_value(tag_s<N + 1>(), !(offset % alignment) ||
-                                                 sizeof(pod_element_t<N, POD, TupleFeed>) <= offset % alignment ?
-                                                 offset + sizeof(pod_element_t<N, POD, TupleFeed>) :
-                                                 offset + sizeof(pod_element_t<N, POD, TupleFeed>) +
-                                                 offset % alignment);
+                // TODO: implement with packing
+                return get_value(tag_s<N + 1>(),
+                                 !((offset + pod_elem_size<N>()) % packing) ||
+                                 packing - (offset + pod_elem_size<N>()) % packing >= pod_elem_size<N + 1>() ?
+                                 offset + pod_elem_size<N>() :
+                                 offset + pod_elem_size<N>() +
+                                 packing - (offset + pod_elem_size<N>()) % packing
+                );
             }
 
         };
+
+        /*!
+         * \warning Invalid implementation: alignof does not yield packing size of a struct
+         * @tparam TupleFeed
+         * @tparam POD
+         * @return
+         */
+        template<typename TupleFeed, typename POD>
+        constexpr size_t evaluated_pod_size()
+        {
+            return (pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed>::value() +
+                    sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed>)) % pod_packing<POD, TupleFeed>() ?
+                   pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed>::value() +
+                   sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed>) +
+                   pod_packing<POD, TupleFeed>() - (pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed>::value() +
+                                                    sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed>)) %
+                                                   pod_packing<POD, TupleFeed>() :
+                   pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed>::value() +
+                   sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed>);
+        }
+
+    }
+
+    /*!
+     * Checks if POD type is valid for accessing and manipulating elements.
+     * \warning POD is not valid if it contains bitfields.
+     * @tparam TupleFeed
+     * @tparam POD
+     * @return
+     * \todo check this function
+     */
+    template<typename TupleFeed, typename POD>
+    constexpr bool is_valid_pod()
+    {
+        // calculate expected POD size using offset
+        // return sizeof(POD) == detail::evaluated_pod_size<TupleFeed, POD>();
+        return true;
     }
 
     /*!
@@ -393,10 +443,13 @@ namespace eld
      * @return
      * \warning Invokes elements in reverse order
      * \todo fix the order of elements invocation
+     * \todo assert that a POD does not have bitfields
      */
     template<typename TupleFeed, typename POD, typename F>
     int for_each(POD &pod, F &&func)
     {
+        static_assert(is_valid_pod<TupleFeed, POD>(),
+                      "POD type is invalid: possibly contains bitfields");
         detail::for_each_<POD, TupleFeed> forEach{};
         return forEach(pod, std::forward<F>(func));
     }
