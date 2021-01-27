@@ -1,9 +1,6 @@
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 
 project(pod_reflection)
-
-#set(CMAKE_CXX_STANDARD 17)
-#set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 option(BUILD_EXAMPLE "Compile pod_reflection example?" ON)
 
@@ -16,25 +13,11 @@ endif (hasParent)
 add_library(pod_reflection INTERFACE)
 
 target_include_directories(pod_reflection INTERFACE include/
-        #${CMAKE_CURRENT_SOURCE_DIR}/include
         )
 
 add_library(eld::pod_reflection ALIAS pod_reflection)
 
 if (BUILD_EXAMPLE)
-    #    add_executable(pod_relf_example
-    #            example/main.cpp
-    #            )
-    #
-    #    target_link_libraries(pod_relf_example
-    #            PRIVATE
-    #            pod_reflection
-    #            )
-    #    set_target_properties(pod_relf_example
-    #            PROPERTIES
-    #            CXX_STANDARD 17
-    #            CXX_STANDARD_REQUIRED TRUE
-    #            )
 
 	add_executable(sb.reflection_11 example/main.cpp)
 	target_link_libraries(sb.reflection_11 PRIVATE pod_reflection)
