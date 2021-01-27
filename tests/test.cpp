@@ -99,8 +99,32 @@ struct MsgHeader
 //    MessageType msgType;
 };
 
+struct WithArray
+{
+    int a;
+    int b[24];
+    int c;
+};
+
+struct S {
+    int x;
+    struct Foo {
+        int i;
+        int j;
+        int a[3];
+    } b;
+};
+
 int main()
 {
+
+    std::cout << eld::detail::count_args<dce>(eld::detail::is_aggregate_initialisable<dce>()) <<
+            std::endl;
+    std::cout << eld::detail::count_args<none>(eld::detail::is_aggregate_initialisable<none>()) <<
+              std::endl;
+    std::cout << eld::pod_size<abc>() << std::endl;
+    std::cout << eld::pod_size<none>() << std::endl;
+
 
     detail::make_index_sequence<5> sdgb;
 
@@ -126,15 +150,14 @@ int main()
     static_assert(detail::is_aggregate_initialisable<abc, int, float, char, char, int, double>(), "Unexpected");
     static_assert(detail::is_aggregate_initialisable<abc, int, float, char, char, int, double, std::string>(),
                   "Unexpected");
-    static_assert(detail::is_aggregate_initialisable<abc, abc>(), "Unexpected");
+    // static_assert(detail::is_aggregate_initialisable<abc, abc>(), "Unexpected");
 
     static_assert(
             detail::is_aggregate_initialisable<abc, detail::implicitly_convertible, detail::implicitly_convertible>(),
             "Unexpected");
 
     static_assert(eld::pod_size<abc>() == 7, "Invalid arguments number!");
-    static_assert(eld::pod_size<none>() ==
-                  std::numeric_limits<size_t>::max(), "Invalid arguments number!");
+    static_assert(eld::pod_size<none>() == 0, "Invalid arguments number!");
 
 
     static_assert(std::is_same<abc, decltype(abc{eld::detail::explicitly_convertible<int>()})>::value, "");

@@ -33,6 +33,21 @@ namespace eld
         template<size_t s>
         using implicitly_convertible_s = implicitly_convertible;
 
+        // stop case
+        template<typename POD, typename ... T>
+        constexpr size_t count_args(void_t<>)
+        {
+            return sizeof...(T) - 1;
+        }
+
+        template<typename POD, typename ... T>
+        constexpr size_t count_args(void_t<decltype(POD{T()...})>)
+        {
+            return count_args<POD, T..., implicitly_convertible>(
+                    void_t<decltype(POD{T()..., implicitly_convertible()})>());
+        }
+
+
         /*!
  * \TODO: description
  * @tparam Allowed
@@ -78,7 +93,7 @@ namespace eld
 
         template<typename T, typename ... From>
         struct is_aggregate_initialisable_<
-                void_t<decltype(T{std::declval<From>()...})>,
+                void_t<decltype(T{{std::declval<From>()}...})>,
                 T,
                 From...> : std::true_type
         {
@@ -118,6 +133,21 @@ namespace eld
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
+
+        // stop case
+        template<typename POD, typename ... Args>
+        constexpr size_t count_args(std::false_type)
+        {
+            return sizeof...(Args) ? sizeof...(Args)- 1 : 0;
+        }
+
+        // general recursion
+        template<typename POD, typename ... Args>
+        constexpr size_t count_args(std::true_type)
+        {
+            return count_args<POD, Args...,
+                    implicitly_convertible>(is_aggregate_initialisable<POD, Args..., implicitly_convertible>());
+        }
 
         /*!
      * Helper class to count maximum arguments for aggregate initialization of a POD type
@@ -215,12 +245,14 @@ namespace eld
 
 
     // PUBLIC classes
+
     /*!
      * Provides access to the number of elements in a POD type as a compile-time constant expression
      * @tparam POD
      */
     template<typename POD>
-    struct pod_size : public std::integral_constant<size_t, detail::aggregate_args_counter<POD>::value()>
+    struct pod_size : public std::integral_constant<size_t,
+            detail::count_args<POD>(detail::is_aggregate_initialisable<POD>())>
     {
     };
 
