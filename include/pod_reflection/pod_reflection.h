@@ -33,6 +33,21 @@ namespace eld
         template<size_t s>
         using implicitly_convertible_s = implicitly_convertible;
 
+        // stop case
+        template<typename POD, typename ... T>
+        constexpr size_t count_args(void_t<>)
+        {
+            return sizeof...(T) - 1;
+        }
+
+        template<typename POD, typename ... T>
+        constexpr size_t count_args(void_t<decltype(POD{T()...})>)
+        {
+            return count_args<POD, T..., implicitly_convertible>(
+                    void_t<decltype(POD{T()..., implicitly_convertible()})>());
+        }
+
+
         /*!
  * \TODO: description
  * @tparam Allowed
@@ -78,7 +93,7 @@ namespace eld
 
         template<typename T, typename ... From>
         struct is_aggregate_initialisable_<
-                void_t<decltype(T{std::declval<From>()...})>,
+                void_t<decltype(T{{std::declval<From>()}...})>,
                 T,
                 From...> : std::true_type
         {
@@ -87,16 +102,6 @@ namespace eld
         template<typename T, typename ... From>
         using is_aggregate_initialisable = is_aggregate_initialisable_<void_t<>, T, From...>;
 
-        // TODO: remove?
-        template<typename POD, size_t N, typename = make_index_sequence<N>>
-        struct is_aggregate_initialisable_from_n_args;
-
-        // TODO: remove?
-        template<typename POD, size_t N, size_t ... Indx>
-        struct is_aggregate_initialisable_from_n_args<POD, N, index_sequence<Indx...>> :
-                is_aggregate_initialisable<POD, implicitly_convertible_s<Indx>...>
-        {
-        };
 
         template<typename POD, typename T, size_t PODMemberIndex,
                 typename = void,
@@ -119,38 +124,20 @@ namespace eld
 #pragma GCC diagnostic pop
 #endif
 
-        /*!
-     * Helper class to count maximum arguments for aggregate initialization of a POD type
-     * @tparam POD
-     */
-        template<typename POD>
-        class aggregate_args_counter
+        // stop case
+        template<typename POD, typename ... Args>
+        constexpr size_t count_args(std::false_type)
         {
-        public:
-            constexpr static size_t value()
-            {
-                using namespace detail;
-                return sum_increment(tag_s<0>(), std::integral_constant<bool,
-                        (bool) is_aggregate_initialisable_from_n_args<POD, 0>()>());
-            }
+            return sizeof...(Args) ? sizeof...(Args) - 1 : 0;
+        }
 
-        private:
-
-            template<size_t i>
-            constexpr static size_t sum_increment(tag_s<i>, std::false_type)
-            {
-                return i - 1;
-            }
-
-            template<size_t i>
-            constexpr static size_t sum_increment(tag_s<i>, std::true_type)
-            {
-                using namespace detail;
-                return sum_increment(tag_s<i + 1>(),
-                                     std::integral_constant<bool,
-                                             (bool) is_aggregate_initialisable_from_n_args<POD, i + 1>()>());
-            }
-        };
+        // general recursion
+        template<typename POD, typename ... Args>
+        constexpr size_t count_args(std::true_type)
+        {
+            return count_args<POD, Args...,
+                    implicitly_convertible>(is_aggregate_initialisable<POD, Args..., implicitly_convertible>());
+        }
 
         template<size_t I, typename POD, typename TupleFeed>
         class tuple_index_from_pod_member
@@ -215,12 +202,14 @@ namespace eld
 
 
     // PUBLIC classes
+
     /*!
      * Provides access to the number of elements in a POD type as a compile-time constant expression
      * @tparam POD
      */
     template<typename POD>
-    struct pod_size : public std::integral_constant<size_t, detail::aggregate_args_counter<POD>::value()>
+    struct pod_size : public std::integral_constant<size_t,
+            detail::count_args<POD>(detail::is_aggregate_initialisable<POD>())>
     {
     };
 
@@ -430,7 +419,7 @@ namespace eld
             int operator()(POD &pod, F &&f)
             {
                 auto func = std::forward<F>(f);
-                return fold(invoke(get<I, TupleFeed>(pod), func)...);
+                return fold(invoke(get<sizeof...(I) - 1 - I, TupleFeed>(pod), func)...);
             }
         };
 

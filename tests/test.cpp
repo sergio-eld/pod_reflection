@@ -30,45 +30,6 @@ struct none
     {}
 };
 
-template<size_t> struct tag_s
-{
-};
-
-constexpr size_t accumulate_decrement(tag_s<0>, size_t sum)
-{
-    return sum;
-}
-
-template<size_t i>
-constexpr size_t accumulate_decrement(tag_s<i>, size_t sum)
-{
-    return sum + accumulate_decrement(tag_s<i - 1>(), i - 1);
-}
-
-constexpr size_t sum_increment(tag_s<5>, size_t sum)
-{
-    return sum;
-}
-
-template<size_t i>
-constexpr size_t sum_increment(tag_s<i>, size_t sum)
-{
-    return sum + sum_increment(tag_s<i + 1>(), i + 1);
-}
-
-
-template<size_t i>
-constexpr size_t sum_increment(tag_s<i>, std::false_type)
-{
-    return i - 1;
-}
-
-template<size_t i>
-constexpr size_t sum_increment(tag_s<i>, std::true_type)
-{
-    return sum_increment(tag_s<i + 1>(), std::integral_constant<bool, (i < 5)>());
-}
-
 #pragma pack(push, 1)
 struct packed
 {
@@ -84,35 +45,38 @@ struct invalid_pod
     char c;
 };
 
-struct MsgHeader
+struct WithArray
 {
-    uint32_t synchro;
-//    TransceiverType recipientID: 4;
-//    TransceiverType transmitterID: 4;
-//    MessageID msgId;
-    uint8_t reserved;
-    uint32_t dateSec;
-    uint32_t dateMicro;
-    uint8_t msgCounter;
-    uint32_t msgLength;
-    uint16_t checksum;
-//    MessageType msgType;
+    int a;
+    int b[24];
+    int c;
+};
+
+struct S {
+    int x;
+    struct Foo {
+        int i;
+        int j;
+        int a[3];
+    } b;
 };
 
 int main()
 {
+    std::cout << "struct abc has " << eld::pod_size<abc>() << " elements" << std::endl;
+    std::cout << "struct dce has " << eld::pod_size<dce>() << " elements" << std::endl;
+    std::cout << "struct none has " << eld::pod_size<none>() << " elements" << std::endl;
+
+    std::cout << eld::detail::count_args<dce>(eld::detail::is_aggregate_initialisable<dce>()) <<
+            std::endl;
+    std::cout << eld::detail::count_args<none>(eld::detail::is_aggregate_initialisable<none>()) <<
+              std::endl;
+    std::cout << eld::pod_size<abc>() << std::endl;
+    std::cout << eld::pod_size<none>() << std::endl;
+
 
     detail::make_index_sequence<5> sdgb;
 
-    constexpr bool f = detail::is_aggregate_initialisable_from_n_args<abc, 6>();
-
-    constexpr size_t zero = accumulate_decrement(tag_s<0>(), 16);
-    constexpr size_t sum = accumulate_decrement(tag_s<5>(), 5);
-
-    constexpr size_t sumIncr = sum_increment(tag_s<0>(), 0);
-
-    constexpr size_t fuck = sum_increment(tag_s<16>(), std::false_type());
-    constexpr size_t you = sum_increment(tag_s<0>(), std::true_type());
 
     decltype(abc{}) abc1;
     decltype(abc{detail::implicitly_convertible()}) abc2;
@@ -126,15 +90,14 @@ int main()
     static_assert(detail::is_aggregate_initialisable<abc, int, float, char, char, int, double>(), "Unexpected");
     static_assert(detail::is_aggregate_initialisable<abc, int, float, char, char, int, double, std::string>(),
                   "Unexpected");
-    static_assert(detail::is_aggregate_initialisable<abc, abc>(), "Unexpected");
+    // static_assert(detail::is_aggregate_initialisable<abc, abc>(), "Unexpected");
 
     static_assert(
             detail::is_aggregate_initialisable<abc, detail::implicitly_convertible, detail::implicitly_convertible>(),
             "Unexpected");
 
     static_assert(eld::pod_size<abc>() == 7, "Invalid arguments number!");
-    static_assert(eld::pod_size<none>() ==
-                  std::numeric_limits<size_t>::max(), "Invalid arguments number!");
+    static_assert(eld::pod_size<none>() == 0, "Invalid arguments number!");
 
 
     static_assert(std::is_same<abc, decltype(abc{eld::detail::explicitly_convertible<int>()})>::value, "");
@@ -251,9 +214,6 @@ int main()
 
     int count = eld::for_each<TupleFeedAbc>(printablePod, printing());
 
-    eld::pod_size<MsgHeader>();
-    static_assert(std::is_same<uint32_t,
-            eld::pod_element_t<0, MsgHeader, eld::basic_feed>>::value, "");
 
     sizeof(std::string);
 
