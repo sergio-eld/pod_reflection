@@ -102,16 +102,6 @@ namespace eld
         template<typename T, typename ... From>
         using is_aggregate_initialisable = is_aggregate_initialisable_<void_t<>, T, From...>;
 
-        // TODO: remove?
-        template<typename POD, size_t N, typename = make_index_sequence<N>>
-        struct is_aggregate_initialisable_from_n_args;
-
-        // TODO: remove?
-        template<typename POD, size_t N, size_t ... Indx>
-        struct is_aggregate_initialisable_from_n_args<POD, N, index_sequence<Indx...>> :
-                is_aggregate_initialisable<POD, implicitly_convertible_s<Indx>...>
-        {
-        };
 
         template<typename POD, typename T, size_t PODMemberIndex,
                 typename = void,
@@ -138,7 +128,7 @@ namespace eld
         template<typename POD, typename ... Args>
         constexpr size_t count_args(std::false_type)
         {
-            return sizeof...(Args) ? sizeof...(Args)- 1 : 0;
+            return sizeof...(Args) ? sizeof...(Args) - 1 : 0;
         }
 
         // general recursion
@@ -148,39 +138,6 @@ namespace eld
             return count_args<POD, Args...,
                     implicitly_convertible>(is_aggregate_initialisable<POD, Args..., implicitly_convertible>());
         }
-
-        /*!
-     * Helper class to count maximum arguments for aggregate initialization of a POD type
-     * @tparam POD
-     */
-        template<typename POD>
-        class aggregate_args_counter
-        {
-        public:
-            constexpr static size_t value()
-            {
-                using namespace detail;
-                return sum_increment(tag_s<0>(), std::integral_constant<bool,
-                        (bool) is_aggregate_initialisable_from_n_args<POD, 0>()>());
-            }
-
-        private:
-
-            template<size_t i>
-            constexpr static size_t sum_increment(tag_s<i>, std::false_type)
-            {
-                return i - 1;
-            }
-
-            template<size_t i>
-            constexpr static size_t sum_increment(tag_s<i>, std::true_type)
-            {
-                using namespace detail;
-                return sum_increment(tag_s<i + 1>(),
-                                     std::integral_constant<bool,
-                                             (bool) is_aggregate_initialisable_from_n_args<POD, i + 1>()>());
-            }
-        };
 
         template<size_t I, typename POD, typename TupleFeed>
         class tuple_index_from_pod_member
@@ -462,7 +419,7 @@ namespace eld
             int operator()(POD &pod, F &&f)
             {
                 auto func = std::forward<F>(f);
-                return fold(invoke(get<I, TupleFeed>(pod), func)...);
+                return fold(invoke(get<sizeof...(I) - 1 - I, TupleFeed>(pod), func)...);
             }
         };
 

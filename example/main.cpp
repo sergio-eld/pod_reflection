@@ -1,97 +1,55 @@
-/* This is an example unit for testing and demonstrating basic usage of the
-pod_reflection library.*/
+#include <pod_reflection/pod_reflection.h>
 
 #include <string>
 #include <iostream>
-#include <tuple>
-
-#define POD_EXTENDS std::tuple<std::string>
-
-#include "pod_reflection.hpp"
 
 struct abc
 {
-    int a = 4;
-    float b = 8.15f;        //vs 17 express does not allow implicit conversion from double
-    char c = 'c',
-            d = 'd';
-    int e = 16;
-    double f = 23.42;
-    std::string g = "oceanic";
+    int a;
+    float b;
+    char c,
+    d;
+    int e;
+    double f;
+    std::string g;
 };
 
 struct dce
 {
-    int a = 4;
-    double b = 3.18;
-    abc c{};
+    int a;
+    double b;
+    abc c;
 };
 
-int main(int argc, char **argv)
+struct none
+{};
+
+// This might be an endian converting class!
+struct Printer
 {
-    std::void_t<int>;
-    //assert number of args allowed for aggregate initialization
-    static_assert(!refl_traits<abc>::args_allowed<16>::value, "Wrong output!");
-    static_assert(!refl_traits<abc>::args_allowed<8>::value, "Wrong output!");
+    template <typename T>
+    void operator()(const T& t)
+    {
+        std::cout << t << " ";
+    }
+};
 
-    static_assert(refl_traits<abc>::args_allowed<6>::value, "Wrong output!");
-    static_assert(refl_traits<abc>::args_allowed<5>::value, "Wrong output!");
+int main()
+{
+    std::cout << "struct abc has " << eld::pod_size<abc>() << " elements" << std::endl;
+    std::cout << "struct dce has " << eld::pod_size<dce>() << " elements" << std::endl;
+    std::cout << "struct none has " << eld::pod_size<none>() << " elements" << std::endl;
 
+    using TupleFeed = eld::extend_feed<std::string>;
 
-    static_assert(refl_traits<abc>::is_valid_arg<int, 0>::value, "Wrong output!");
-    static_assert(!refl_traits<abc>::is_valid_arg<int, 1>::value, "Wrong output!");
+    if (std::is_same<std::string, eld::pod_element_t<6, abc, TupleFeed>>::value)
+        std::cout << "6th element in struct abc is std::string" << std::endl;
 
-
-    static_assert(refl_traits<abc>::is_valid_arg<float, 1>::value, "Wrong output!");
-    static_assert(!refl_traits<abc>::is_valid_arg<float, 2>::value, "Wrong output!");
-
-    static_assert(refl_traits<abc>::is_valid_arg<char, 2>::value, "Wrong output!");
-    static_assert(refl_traits<abc>::is_valid_arg<char, 3>::value, "Wrong output!");
-    static_assert(!refl_traits<abc>::is_valid_arg<char, 4>::value, "Wrong output!");
-
-    static_assert(refl_traits<abc>::is_valid_arg<int, 4>::value, "Wrong output!");
-    static_assert(!refl_traits<abc>::is_valid_arg<int, 5>::value, "Wrong output!");
-
-    static_assert(refl_traits<abc>::is_valid_arg<double, 5>::value, "Wrong output!");
-    static_assert(!refl_traits<abc>::is_valid_arg<double, 6>::value, "Wrong output!");
-
-    static_assert(refl_traits<abc>::is_valid_arg<std::string, 6>::value, "Wrong output!");
-    static_assert(!refl_traits<abc>::is_valid_arg<std::string, 7>::value, "Wrong output!");
-
-    static_assert(refl_traits<abc>::fields_count() == 7, "Wrong output!");
-    static_assert(refl_traits<abc>::fields_count() != 6, "Wrong output!");
+    abc toPrint{4, 8, 'o', 'c', 15, 16.2342, "eanic"};
 
 
-    std::cout << "Failed to deduce argument no. " << refl_traits<dce>::field_types::index << std::endl;
-    typedef refl_traits<abc>::field_types abc_types;
+    eld::for_each<TupleFeed>(toPrint, Printer());
+    std::cout << std::endl;
 
-    static_assert(std::is_same_v<abc_types, std::tuple<int, float, char, char, int, double, std::string>>,
-                  "Wrong output!");
-
-    static_assert(std::is_same_v<mem_layout_info<abc_types>::fields_sizes,
-                          std::index_sequence<sizeof(abc::a), sizeof(abc::b), sizeof(abc::c), sizeof(abc::d), sizeof(abc::e), sizeof(abc::f), sizeof(abc::g)>>,
-                  "Wrong output!");
-
-    mem_layout_info<abc_types>::total_args_size;
-    static_assert(mem_layout_info<abc_types>::class_size == sizeof(abc), "Wrong output!");
-
-    static_assert(mem_layout_info<abc_types>::padding<0> == offsetof(abc, a), "Wrong output!");
-    static_assert(mem_layout_info<abc_types>::padding<1> == offsetof(abc, b), "Wrong output!");
-    static_assert(mem_layout_info<abc_types>::padding<2> == offsetof(abc, c), "Wrong output!");
-    static_assert(mem_layout_info<abc_types>::padding<3> == offsetof(abc, d), "Wrong output!");
-    static_assert(mem_layout_info<abc_types>::padding<4> == offsetof(abc, e), "Wrong output!");
-    static_assert(mem_layout_info<abc_types>::padding<5> == offsetof(abc, f), "Wrong output!");
-    static_assert(mem_layout_info<abc_types>::padding<6> == offsetof(abc, g), "Wrong output!");
-
-    abc abc_a;
-    std::cout << refl_traits<abc>::get<0>(abc_a) << std::endl;
-    std::cout << refl_traits<abc>::get<1>(abc_a) << std::endl;
-    std::cout << refl_traits<abc>::get<2>(abc_a) << std::endl;
-    std::cout << refl_traits<abc>::get<3>(abc_a) << std::endl;
-    std::cout << refl_traits<abc>::get<4>(abc_a) << std::endl;
-    std::cout << refl_traits<abc>::get<5>(abc_a) << std::endl;
-    std::cout << refl_traits<abc>::get<6>(abc_a) << std::endl;
-
-    std::cin.get();
     return 0;
 }
