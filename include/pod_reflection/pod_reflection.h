@@ -423,9 +423,8 @@ namespace eld
         struct for_each_<POD, TupleFeed, index_sequence<>>
         {
             template<typename F>
-            int operator()(POD &pod, F &&f)
+            int operator()(POD &pod, F &&)
             {
-                auto func = std::forward<F>(f);
                 return 0;
             }
         };
