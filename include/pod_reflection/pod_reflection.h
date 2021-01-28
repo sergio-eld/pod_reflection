@@ -423,7 +423,7 @@ namespace eld
         struct for_each_<POD, TupleFeed, index_sequence<>>
         {
             template<typename F>
-            int operator()(POD &pod, F &&)
+            int operator()(POD &, F &&)
             {
                 return 0;
             }
