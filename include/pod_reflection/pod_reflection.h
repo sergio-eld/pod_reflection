@@ -264,6 +264,17 @@ namespace eld
                    4;//alignof(POD);
         }
 
+        template<size_t I, typename POD, typename TupleFeed>
+        struct pod_elem_size_
+        {
+            using type = pod_element_t<I, POD, TupleFeed>;
+
+            constexpr static size_t value()
+            {
+                return sizeof(type);
+            }
+        };
+
         // TODO: check this function!
         template<size_t I, typename POD, typename TupleFeed>
         class pod_elem_offset
@@ -274,8 +285,11 @@ namespace eld
             template<size_t Indx>
             constexpr static size_t pod_elem_size()
             {
-                return sizeof(pod_element_t<Indx, POD, TupleFeed>);
+                return pod_elem_size_<Indx, POD, TupleFeed>::value();
             }
+
+//            template<size_t Indx>
+//            using pod_elem_size = pod_elem_size<Indx, POD, TupleFeed>;
 
         public:
             constexpr static std::ptrdiff_t packing = pod_packing<POD, TupleFeed>();
@@ -404,6 +418,18 @@ namespace eld
         template<typename POD, typename TupleFeed, typename = make_index_sequence<(pod_size<POD>())>>
         struct for_each_;
 
+        // workaround for empty structs
+        template<typename POD, typename TupleFeed>
+        struct for_each_<POD, TupleFeed, index_sequence<>>
+        {
+            template<typename F>
+            int operator()(POD &pod, F &&f)
+            {
+                auto func = std::forward<F>(f);
+                return 0;
+            }
+        };
+
         template<typename POD, typename TupleFeed, size_t ... I>
         struct for_each_<POD, TupleFeed, index_sequence<I...>>
         {
@@ -438,12 +464,13 @@ namespace eld
      * \warning Invokes elements in reverse order
      * \todo fix the order of elements invocation
      * \todo assert that a POD does not have bitfields
+     * \todo assert that a POD does not contain fixed size arrays
      */
     template<typename TupleFeed, typename POD, typename F>
     int for_each(POD &pod, F &&func)
     {
-        static_assert(is_valid_pod<TupleFeed, POD>(),
-                      "POD type is invalid: possibly contains bitfields");
+        // static_assert(is_valid_pod<TupleFeed, POD>(),
+        //              "POD type is invalid: possibly contains bitfields");
         detail::for_each_<POD, TupleFeed> forEach{};
         return forEach(pod, std::forward<F>(func));
     }

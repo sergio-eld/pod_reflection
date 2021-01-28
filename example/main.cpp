@@ -50,6 +50,11 @@ int main()
 
     eld::for_each<TupleFeed>(toPrint, Printer());
     std::cout << std::endl;
+    none none{};
+    eld::for_each<TupleFeed>(none, Printer());
+    eld::detail::make_index_sequence<0> zeroSeq{};
+
+    static_assert(std::is_same<eld::detail::make_index_sequence<0>, eld::detail::index_sequence<>>::value, "");
 
     return 0;
 }
