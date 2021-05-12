@@ -7,6 +7,29 @@
 
 namespace eld
 {
+    /*!
+     * Tag for a type that couldn't be deduced from provided tuple feed
+     */
+    struct undeduced
+    {
+    };
+
+    // TODO: add pointers?
+    using basic_feed = std::tuple<bool, unsigned,
+            signed,
+            char, signed char, unsigned char,
+            short, unsigned short,
+            int, unsigned int,
+            long, unsigned long,
+            long long, unsigned long long,
+            float, double, long double, long double
+    >;
+
+    // TODO: filter duplicates
+    template<typename ... ArgsT>
+    using extend_feed = decltype(std::tuple_cat(basic_feed(),
+                                                std::tuple<ArgsT>()...));
+
     namespace detail
     {
 
@@ -81,6 +104,12 @@ namespace eld
         template<size_t N>
         using make_index_sequence = typename index_sequence_helper<N>::type;
 
+        /**
+         * Check if T is aggregate initialisable from given types.
+         * Yields True if T{From()...} is well-formed
+         * @tparam T Type for aggregate initialisation
+         * @tparam From Types
+         */
         template<typename, typename T, typename ...>
         struct is_aggregate_initialisable_ : std::false_type
         {
@@ -91,6 +120,12 @@ namespace eld
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #endif
 
+        /**
+         * Check if T is aggregate initialisable from given types.
+         * Yields True if T{From()...} is well-formed
+         * @tparam T Type for aggregate initialisation
+         * @tparam From Types
+         */
         template<typename T, typename ... From>
         struct is_aggregate_initialisable_<
                 void_t<decltype(T{{std::declval<From>()}...})>,
@@ -99,26 +134,15 @@ namespace eld
         {
         };
 
+        /**
+         * Check if T is aggregate initialisable from given types.
+         * Yields True if T{From()...} is well-formed
+         * @tparam T Type for aggregate initialisation
+         * @tparam From Types
+         */
         template<typename T, typename ... From>
         using is_aggregate_initialisable = is_aggregate_initialisable_<void_t<>, T, From...>;
 
-
-        template<typename POD, typename T, size_t PODMemberIndex,
-                typename = void,
-                typename = make_index_sequence<PODMemberIndex>>
-        struct is_pod_member_initialisable_from_t : std::false_type
-        {
-        };
-
-        template<typename POD, typename T, size_t PODMemberIndex,
-                size_t ... PrevArgs>
-        struct is_pod_member_initialisable_from_t<POD,
-                T,
-                PODMemberIndex,
-                void_t<decltype(POD{implicitly_convertible_s<PrevArgs>()..., explicitly_convertible<T>()})>,
-                index_sequence<PrevArgs...>> : std::true_type
-        {
-        };
 
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
@@ -138,7 +162,55 @@ namespace eld
             return count_args<POD, Args...,
                     implicitly_convertible>(is_aggregate_initialisable<POD, Args..., implicitly_convertible>());
         }
+    }
 
+    // TODO: write tests for pod_size
+    /*!
+     * Provides access to the number of elements in a POD type as a compile-time constant expression
+     * @tparam POD
+     */
+    template<typename POD>
+    struct pod_size : public std::integral_constant<size_t,
+            detail::count_args<POD>(detail::is_aggregate_initialisable<POD>())>
+    {
+    };
+
+    namespace detail
+    {
+
+        /**
+         * Helper class to check if POD member is initialisable from T
+         * @tparam POD
+         * @tparam T
+         * @tparam PODMemberIndex
+         * @todo finish documentation
+         */
+        template<typename POD, typename T, size_t PODMemberIndex,
+                typename = void,
+                typename = make_index_sequence<PODMemberIndex>>
+        struct is_pod_member_initialisable_from_t : std::false_type
+        {
+        };
+
+        /**
+         * Helper class to check if POD member is initialisable from T
+         * @tparam POD
+         * @tparam T
+         * @tparam PODMemberIndex
+         * @todo finish documentation
+         */
+        template<typename POD, typename T, size_t PODMemberIndex,
+                size_t ... PrevArgs>
+        struct is_pod_member_initialisable_from_t<POD,
+                T,
+                PODMemberIndex,
+                void_t<decltype(POD{implicitly_convertible_s<PrevArgs>()..., explicitly_convertible<T>()})>,
+                index_sequence<PrevArgs...>> : std::true_type
+        {
+        };
+
+
+        // Do I need this?
         template<size_t I, typename POD, typename TupleFeed>
         class tuple_index_from_pod_member
         {
@@ -182,44 +254,6 @@ namespace eld
             }
         };
 
-    }
-
-    // TODO: add pointers?
-    using basic_feed = std::tuple<bool, unsigned,
-            signed,
-            char, signed char, unsigned char,
-            short, unsigned short,
-            int, unsigned int,
-            long, unsigned long,
-            long long, unsigned long long,
-            float, double, long double, long double
-    >;
-
-    // TODO: filter duplicates
-    template<typename ... ArgsT>
-    using extend_feed = decltype(std::tuple_cat(basic_feed(),
-                                                std::tuple<ArgsT>()...));
-
-
-    // PUBLIC classes
-
-    /*!
-     * Provides access to the number of elements in a POD type as a compile-time constant expression
-     * @tparam POD
-     */
-    template<typename POD>
-    struct pod_size : public std::integral_constant<size_t,
-            detail::count_args<POD>(detail::is_aggregate_initialisable<POD>())>
-    {
-    };
-
-    /*!
-     * Tag for a type that couldn't be deduced from provided tuple feed
-     */
-    struct undeduced;
-
-    namespace detail
-    {
         template<size_t I, typename TupleFeed, bool = I >= std::tuple_size<TupleFeed>::value>
         struct deduced_tuple_elem
         {
@@ -252,6 +286,21 @@ namespace eld
 
     template<size_t I, typename POD, typename TupleFeed>
     using pod_element_t = typename pod_element<I, POD, TupleFeed>::type;
+
+    namespace detail
+    {
+        template<typename POD, typename /*TupleFeed*/, typename = make_index_sequence<pod_size<POD>::value>>
+        struct pod_to_tuple;
+
+        template <typename POD, typename TupleFeed, size_t ... I>
+        struct pod_to_tuple<POD, TupleFeed, index_sequence<I...>>
+        {
+            using type = std::tuple<pod_element_t<I, POD, TupleFeed>...>;
+        };
+    }
+
+    template <typename POD, typename TupleFeed>
+    using pod_to_tuple_t = typename detail::pod_to_tuple<POD, TupleFeed>::type;
 
     namespace detail
     {

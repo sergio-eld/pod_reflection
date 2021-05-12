@@ -233,6 +233,10 @@ int main()
     static_assert(sizeof(dummy) == eld::detail::evaluated_pod_size<TupleFeedAbc, dummy>(),
             "");
 
+    using tuple_from_dummy = eld::pod_to_tuple_t<dummy, TupleFeedAbc>;
+    static_assert(std::is_same<std::tuple<int, char, std::string>,
+            tuple_from_dummy>(), "pod_to_tuple_t failed");
+
     sizeof(dummy);
 
     size_t sizePrintablePod =
