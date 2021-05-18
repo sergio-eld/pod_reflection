@@ -33,6 +33,12 @@ namespace eld
 
     constexpr size_t invalid_offset = std::numeric_limits<size_t>::max();
 
+    struct ignore_enums_t
+    {
+    };
+
+    constexpr ignore_enums_t ignore_enums{};
+
     namespace detail
     {
 
@@ -145,8 +151,6 @@ namespace eld
          */
         template<typename T, typename ... From>
         using is_aggregate_initialisable = is_aggregate_initialisable_<void_t<>, T, From...>;
-
-
 
 
         // stop case
@@ -372,7 +376,7 @@ namespace eld
         };
 
         // workaround for zero-sized c-arrays
-        template <typename T>
+        template<typename T>
         struct const_array<T, 0>
         {
             constexpr T operator[](size_t index) const
@@ -384,6 +388,7 @@ namespace eld
             {
                 return T();
             }
+
             const T *data = nullptr;
         };
 
@@ -553,52 +558,12 @@ namespace eld
 
     namespace detail
     {
-        constexpr int fold(int f)
+        template<typename TupleFeed, typename POD, typename F, size_t ... Indx>
+        size_t for_each(POD &pod, F &&func, index_sequence<Indx...>)
         {
-            return f;
+            auto f = std::forward<F>(func);
+            return (int)std::initializer_list<int>{(f(get<Indx, TupleFeed>(pod)), 0)...}.size();
         }
-
-        // TODO: fix reverse order
-        template<typename First, typename ... Last>
-        constexpr int fold(First first, Last ... last)
-        {
-            return first + fold(last...);
-        }
-
-        template<typename POD, typename TupleFeed, typename = make_index_sequence<(pod_size<POD>())>>
-        struct for_each_;
-
-        // workaround for empty structs
-        template<typename POD, typename TupleFeed>
-        struct for_each_<POD, TupleFeed, index_sequence<>>
-        {
-            template<typename F>
-            int operator()(POD &, F &&)
-            {
-                return 0;
-            }
-        };
-
-        template<typename POD, typename TupleFeed, size_t ... I>
-        struct for_each_<POD, TupleFeed, index_sequence<I...>>
-        {
-            template<typename E, typename F>
-            int invoke(E &pod_elem, F &f)
-            {
-                f(pod_elem);
-                return 1;
-            }
-
-            // TODO: use recursion
-            template<typename F>
-            int operator()(POD &pod, F &&f)
-            {
-                auto func = std::forward<F>(f);
-                return fold(invoke(get<sizeof...(I) - 1 - I, TupleFeed>(pod), func)...);
-            }
-        };
-
-        // TODO: for_each deduced, that is skipping undeduced elements
     }
 
     /*!
@@ -611,17 +576,21 @@ namespace eld
      * @param func
      * @return
      * \warning Invokes elements in reverse order
-     * \todo fix the order of elements invocation
      * \todo assert that a POD does not have bitfields
      * \todo assert that a POD does not contain fixed size arrays
      */
     template<typename TupleFeed, typename POD, typename F>
-    int for_each(POD &pod, F &&func)
+    size_t for_each(POD &pod, F &&func)
     {
-        // static_assert(is_valid_pod<TupleFeed, POD>(),
-        //              "POD type is invalid: possibly contains bitfields");
-        detail::for_each_<POD, TupleFeed> forEach{};
-        return forEach(pod, std::forward<F>(func));
+        return detail::for_each<TupleFeed>(pod, std::forward<F>(func),
+                                           detail::make_index_sequence<pod_size<POD>::value>());
+    }
+
+    template<typename TupleFeed, typename POD, typename F>
+    size_t for_each(POD &pod, F &&func, ignore_enums_t)
+    {
+        return detail::for_each<TupleFeed>(pod, std::forward<F>(func),
+                                           detail::make_index_sequence<pod_size<POD>::value>());
     }
 
 }

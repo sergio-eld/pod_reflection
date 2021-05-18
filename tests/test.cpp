@@ -191,9 +191,6 @@ int main()
     abcTest.e = 16;
     eld::get<4, TupleFeedAbc>(abcTest) = 24;
 
-    constexpr int folded = eld::detail::fold(1, 1, 1, 1);
-    static_assert(folded == 4, "Failed to fold expressions");
-
     struct printable_pod
     {
         int a;
