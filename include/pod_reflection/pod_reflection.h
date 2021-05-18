@@ -456,14 +456,6 @@ namespace eld
                                                    is_equal<0, pod_size<POD>::value>());
         }
 
-        template<size_t Index, typename POD, typename TupleFeed>
-        constexpr std::ptrdiff_t pod_elem_offset2()
-        {
-            static_assert((Index < pod_size<POD>::value), "Element index is out of range!");
-            return get_pod_offsets<POD, TupleFeed>()[Index];
-        }
-
-
         // TODO: check this function!
         // TODO: optimize code generation, now it is n!
         template<size_t I, typename POD, typename TupleFeed>
@@ -472,49 +464,11 @@ namespace eld
             static_assert(!std::is_same<undeduced, pod_element_t<I, POD, TupleFeed>>::value,
                           "Can't get an offset for an undeduced POD element!");
 
-            template<size_t Indx>
-            constexpr static size_t pod_elem_size()
-            {
-                return pod_elem_size_<Indx, POD, TupleFeed>::value();
-            }
-
-//            template<size_t Indx>
-//            using pod_elem_size = pod_elem_size<Indx, POD, TupleFeed>;
-
         public:
-            constexpr static std::ptrdiff_t packing = pod_packing<POD, TupleFeed>();
-
             constexpr static std::ptrdiff_t value()
             {
-//                return get_value(tag_s<0>(), 0);
                 return get_pod_offsets<POD, TupleFeed>()[I];
             }
-
-        private:
-
-//            constexpr static auto value_ = get_pod_offsets<POD, TupleFeed>()[I];
-            // stop case
-            constexpr static std::ptrdiff_t get_value(tag_s<I>, size_t offset)
-            {
-                return offset;
-            }
-
-            // general recursion
-            template<size_t N>
-            constexpr static std::ptrdiff_t get_value(tag_s<N>, size_t offset)
-            {
-                static_assert(!std::is_same<undeduced, pod_element_t<N, POD, TupleFeed>>::value,
-                              "Can't get an offset for a POD element: failed to deduce one of POD elements' type!");
-
-                return get_value(tag_s<N + 1>(),
-                                 !((offset + pod_elem_size<N>()) % packing) ||
-                                 packing - (offset + pod_elem_size<N>()) % packing >= pod_elem_size<N + 1>() ?
-                                 offset + pod_elem_size<N>() :
-                                 offset + pod_elem_size<N>() +
-                                 packing - (offset + pod_elem_size<N>()) % packing
-                );
-            }
-
         };
 
 
