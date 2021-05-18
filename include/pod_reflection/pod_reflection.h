@@ -147,9 +147,7 @@ namespace eld
         using is_aggregate_initialisable = is_aggregate_initialisable_<void_t<>, T, From...>;
 
 
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
+
 
         // stop case
         template<typename POD, typename ... Args>
@@ -493,6 +491,11 @@ namespace eld
         }
 
     }
+
+// TODO: check warnings
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
     /*!
      * Checks if POD type is valid for accessing and manipulating elements.
