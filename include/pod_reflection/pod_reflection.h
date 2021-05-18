@@ -357,10 +357,42 @@ namespace eld
         {
         };
 
+        template<typename T, size_t N>
+        struct const_array
+        {
+            constexpr T operator[](size_t index) const
+            {
+                return data[index];
+            }
+
+            constexpr T back() const
+            {
+                return data[N - 1];
+            }
+
+            const T data[N];
+        };
+
+        // workaround for zero-sized c-arrays
+        template <typename T>
+        struct const_array<T, 0>
+        {
+            constexpr T operator[](size_t index) const
+            {
+                return T();// data[index];
+            }
+
+            constexpr T back() const
+            {
+                return T();
+            }
+            const T *data = nullptr;
+        };
+
         template<size_t Index, typename POD, typename TupleFeed>
         struct calc_offset
         {
-            constexpr static std::ptrdiff_t value(const std::array<std::ptrdiff_t, Index> &offsets)
+            constexpr static std::ptrdiff_t value(const const_array<std::ptrdiff_t, Index> &offsets)
             {
                 return !((offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value()) %
                          pod_packing<POD, TupleFeed>()) ||
@@ -378,40 +410,59 @@ namespace eld
         template<typename POD, typename TupleFeed>
         struct calc_offset<0, POD, TupleFeed>
         {
-            constexpr static std::ptrdiff_t value(const std::array<std::ptrdiff_t, 0> &)
+            constexpr static std::ptrdiff_t value(const const_array<std::ptrdiff_t, 0> &)
             {
                 return 0;
             }
         };
 
+        template<typename T, size_t ... Indx>
+        constexpr const_array<T, sizeof...(Indx) + 1>
+        combine(const const_array<T, sizeof...(Indx)> &array, const T &val, index_sequence<Indx...>)
+        {
+            return {array[Indx]..., val};
+        }
 
+        template<typename T, size_t N>
+        constexpr const_array<T, N + 1> combine(const const_array<T, N> &array, const T &value)
+        {
+            return combine(array, value, make_index_sequence<N>());
+        }
 
         // stop case: Index == pod_size
         template<typename POD, typename TupleFeed>
-        constexpr std::array<std::ptrdiff_t, pod_size<POD>::value>
-        get_pod_offsets(std::array<std::ptrdiff_t, pod_size<POD>::value> array, std::true_type /*Index == pod_size*/)
+        constexpr const_array<std::ptrdiff_t, pod_size<POD>::value>
+        get_pod_offsets(const_array<std::ptrdiff_t, pod_size<POD>::value> offsets, std::true_type /*Index == pod_size*/)
         {
-            return array;
+            return offsets;
         }
 
         // general recursion
         template<typename POD, typename TupleFeed, size_t CurIndex>
-        constexpr std::array<std::ptrdiff_t, pod_size<POD>::value>
-        get_pod_offsets(std::array<std::ptrdiff_t, CurIndex> array, std::false_type)
+        constexpr const_array<std::ptrdiff_t, pod_size<POD>::value>
+        get_pod_offsets(const_array<std::ptrdiff_t, CurIndex> offsets, std::false_type)
         {
             return get_pod_offsets<POD, TupleFeed>(
-                    append_arrays(array, std::array<std::ptrdiff_t, 1>{/*TODO: calculate current*/
-                            calc_offset<CurIndex, POD, TupleFeed>::value(array)}),
+                    combine(offsets, /*TODO: calculate current*/
+                            calc_offset<CurIndex, POD, TupleFeed>::value(offsets)),
                     is_equal<CurIndex + 1, pod_size<POD>::value>());
         }
 
         template<typename POD, typename TupleFeed>
-        constexpr std::array<std::ptrdiff_t, pod_size<POD>::value>
+        constexpr const_array<std::ptrdiff_t, pod_size<POD>::value>
         get_pod_offsets()
         {
-            return get_pod_offsets<POD, TupleFeed>(std::array<std::ptrdiff_t, 0>{},
+            return get_pod_offsets<POD, TupleFeed>(const_array<std::ptrdiff_t, 0>{},
                                                    is_equal<0, pod_size<POD>::value>());
         }
+
+        template<size_t Index, typename POD, typename TupleFeed>
+        constexpr std::ptrdiff_t pod_elem_offset2()
+        {
+            static_assert((Index < pod_size<POD>::value), "Element index is out of range!");
+            return get_pod_offsets<POD, TupleFeed>()[Index];
+        }
+
 
         // TODO: check this function!
         // TODO: optimize code generation, now it is n!
@@ -435,10 +486,13 @@ namespace eld
 
             constexpr static std::ptrdiff_t value()
             {
-                return get_value(tag_s<0>(), 0);
+//                return get_value(tag_s<0>(), 0);
+                return get_pod_offsets<POD, TupleFeed>()[I];
             }
 
         private:
+
+//            constexpr static auto value_ = get_pod_offsets<POD, TupleFeed>()[I];
             // stop case
             constexpr static std::ptrdiff_t get_value(tag_s<I>, size_t offset)
             {

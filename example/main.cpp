@@ -63,16 +63,16 @@ int main()
     //////////////////////////////////////////////////////////
 
     // empty offset
-    constexpr auto emptyArray0 = eld::detail::get_pod_offsets<none, TupleFeed>(array_i<eld::pod_size<none>::value>(),
-            eld::detail::is_equal<0, eld::pod_size<none>::value>());
-    static_assert(std::is_same<decltype(emptyArray0), const array_i<0>>(), "");
-
-    constexpr auto emptyArray1 = eld::detail::get_pod_offsets<none, TupleFeed>();
-    static_assert(std::is_same<decltype(emptyArray1), const array_i<0>>(), "");
-
-    static_assert(std::is_same<eld::detail::make_index_sequence<0>, eld::detail::index_sequence<>>::value, "");
-
-    constexpr auto abcOffsets = eld::detail::get_pod_offsets<abc, TupleFeed>();
+//    constexpr auto emptyArray0 = eld::detail::get_pod_offsets<none, TupleFeed>(array_i<eld::pod_size<none>::value>(),
+//            eld::detail::is_equal<0, eld::pod_size<none>::value>());
+//    static_assert(std::is_same<decltype(emptyArray0), const array_i<0>>(), "");
+//
+//    constexpr auto emptyArray1 = eld::detail::get_pod_offsets<none, TupleFeed>();
+//    static_assert(std::is_same<decltype(emptyArray1), const array_i<0>>(), "");
+//
+//    static_assert(std::is_same<eld::detail::make_index_sequence<0>, eld::detail::index_sequence<>>::value, "");
+//
+//    constexpr auto abcOffsets = eld::detail::get_pod_offsets<abc, TupleFeed>();
 
 
     using expected_res_array_t = const std::array<std::ptrdiff_t, eld::pod_size<abc>::value>;
