@@ -76,7 +76,7 @@ int main()
 
 
     detail::make_index_sequence<5> sdgb;
-
+    (void)sdgb;
 
     decltype(abc{}) abc1;
     decltype(abc{detail::implicitly_convertible()}) abc2;
@@ -210,7 +210,7 @@ int main()
 
     };
 
-    printable_pod printablePod{4, 8.1516, "23 42"};
+    printable_pod printablePod{4, 8.1516f, "23 42"};
 
     int count = eld::for_each<TupleFeedAbc>(printablePod, printing());
 

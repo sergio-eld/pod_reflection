@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <array>
 #include <cstddef>
 #include <limits>
 #include <tuple>
@@ -29,6 +30,8 @@ namespace eld
     template<typename ... ArgsT>
     using extend_feed = decltype(std::tuple_cat(basic_feed(),
                                                 std::tuple<ArgsT>()...));
+
+    constexpr size_t invalid_offset = std::numeric_limits<size_t>::max();
 
     namespace detail
     {
@@ -210,7 +213,14 @@ namespace eld
         };
 
 
-        // Do I need this?
+        // TODO: make standalone function
+        /**
+         * Gets index within the TupleFeed of the Ith POD member<br>
+         * Complexity: N
+         * @tparam I POD member index
+         * @tparam POD
+         * @tparam TupleFeed tuple of types to iterate through
+         */
         template<size_t I, typename POD, typename TupleFeed>
         class tuple_index_from_pod_member
         {
@@ -292,19 +302,18 @@ namespace eld
         template<typename POD, typename /*TupleFeed*/, typename = make_index_sequence<pod_size<POD>::value>>
         struct pod_to_tuple;
 
-        template <typename POD, typename TupleFeed, size_t ... I>
+        template<typename POD, typename TupleFeed, size_t ... I>
         struct pod_to_tuple<POD, TupleFeed, index_sequence<I...>>
         {
             using type = std::tuple<pod_element_t<I, POD, TupleFeed>...>;
         };
     }
 
-    template <typename POD, typename TupleFeed>
+    template<typename POD, typename TupleFeed>
     using pod_to_tuple_t = typename detail::pod_to_tuple<POD, TupleFeed>::type;
 
     namespace detail
     {
-
         template<typename POD, typename TupleFeed = basic_feed>
         constexpr size_t pod_packing()
         {
@@ -324,7 +333,88 @@ namespace eld
             }
         };
 
+
+        template<typename T, size_t ... LIndices, size_t ... RIndices>
+        constexpr std::array<T, sizeof...(LIndices) + sizeof...(RIndices)>
+        append_arrays(const std::array<T, sizeof...(LIndices)> &lArray,
+                      const std::array<T, sizeof...(RIndices)> &rArray,
+                      index_sequence<LIndices...>,
+                      index_sequence<RIndices...>)
+        {
+            return {lArray[LIndices]...,
+                    rArray[RIndices]...};
+        }
+
+        template<size_t PrevSize, size_t ToAppend, typename T>
+        constexpr std::array<T, PrevSize + ToAppend> append_arrays(const std::array<T, PrevSize> &prev,
+                                                                   const std::array<T, ToAppend> &append)
+        {
+            return append_arrays(prev, append, make_index_sequence<PrevSize>(), make_index_sequence<ToAppend>());
+        }
+
+        template<size_t l, size_t r>
+        struct is_equal : std::integral_constant<bool, l == r>
+        {
+        };
+
+        template<size_t Index, typename POD, typename TupleFeed>
+        struct calc_offset
+        {
+            constexpr static std::ptrdiff_t value(const std::array<std::ptrdiff_t, Index> &offsets)
+            {
+                return !((offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value()) %
+                         pod_packing<POD, TupleFeed>()) ||
+                       pod_packing<POD, TupleFeed>() -
+                       (offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value()) %
+                       pod_packing<POD, TupleFeed>() >= pod_elem_size_<Index, POD, TupleFeed>::value() ?
+                       offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value() :
+                       offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value() +
+                       pod_packing<POD, TupleFeed>() -
+                       (offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value()) %
+                       pod_packing<POD, TupleFeed>();
+            }
+        };
+
+        template<typename POD, typename TupleFeed>
+        struct calc_offset<0, POD, TupleFeed>
+        {
+            constexpr static std::ptrdiff_t value(const std::array<std::ptrdiff_t, 0> &)
+            {
+                return 0;
+            }
+        };
+
+
+
+        // stop case: Index == pod_size
+        template<typename POD, typename TupleFeed>
+        constexpr std::array<std::ptrdiff_t, pod_size<POD>::value>
+        get_pod_offsets(std::array<std::ptrdiff_t, pod_size<POD>::value> array, std::true_type /*Index == pod_size*/)
+        {
+            return array;
+        }
+
+        // general recursion
+        template<typename POD, typename TupleFeed, size_t CurIndex>
+        constexpr std::array<std::ptrdiff_t, pod_size<POD>::value>
+        get_pod_offsets(std::array<std::ptrdiff_t, CurIndex> array, std::false_type)
+        {
+            return get_pod_offsets<POD, TupleFeed>(
+                    append_arrays(array, std::array<std::ptrdiff_t, 1>{/*TODO: calculate current*/
+                            calc_offset<CurIndex, POD, TupleFeed>::value(array)}),
+                    is_equal<CurIndex + 1, pod_size<POD>::value>());
+        }
+
+        template<typename POD, typename TupleFeed>
+        constexpr std::array<std::ptrdiff_t, pod_size<POD>::value>
+        get_pod_offsets()
+        {
+            return get_pod_offsets<POD, TupleFeed>(std::array<std::ptrdiff_t, 0>{},
+                                                   is_equal<0, pod_size<POD>::value>());
+        }
+
         // TODO: check this function!
+        // TODO: optimize code generation, now it is n!
         template<size_t I, typename POD, typename TupleFeed>
         class pod_elem_offset
         {
@@ -362,7 +452,6 @@ namespace eld
                 static_assert(!std::is_same<undeduced, pod_element_t<N, POD, TupleFeed>>::value,
                               "Can't get an offset for a POD element: failed to deduce one of POD elements' type!");
 
-                // TODO: implement with packing
                 return get_value(tag_s<N + 1>(),
                                  !((offset + pod_elem_size<N>()) % packing) ||
                                  packing - (offset + pod_elem_size<N>()) % packing >= pod_elem_size<N + 1>() ?
@@ -373,6 +462,7 @@ namespace eld
             }
 
         };
+
 
         /*!
          * \warning Invalid implementation: alignof does not yield packing size of a struct
