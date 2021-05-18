@@ -79,18 +79,39 @@ namespace eld
                     void_t<decltype(POD{T()..., implicitly_convertible()})>());
         }
 
+        template<typename T, bool /*false*/ = std::is_enum<T>::value>
+        struct unwrap_enum
+        {
+            using type = T;
+        };
+
+        template<typename T>
+        struct unwrap_enum<T, true>
+        {
+            using type = typename std::underlying_type<T>::type;
+        };
+
+        template<typename T>
+        using unwrap_enum_t = typename unwrap_enum<T>::type;
 
         /*!
  * \TODO: description
  * @tparam Allowed
  */
-        template<typename Allowed>
+        template<typename Allowed, typename /*ignore_enums_t*/= void>
         struct explicitly_convertible
         {
             template<typename To, typename = typename
             std::enable_if<std::is_same<To, Allowed>::value>::type>
             constexpr operator To() const noexcept;
+        };
 
+        template<typename Allowed>
+        struct explicitly_convertible<Allowed, ignore_enums_t>
+        {
+            template<typename To, typename = typename
+            std::enable_if<std::is_same<unwrap_enum_t<To>, Allowed>::value>::type>
+            constexpr operator To() const noexcept;
         };
 
         // index sequence only
@@ -562,7 +583,7 @@ namespace eld
         size_t for_each(POD &pod, F &&func, index_sequence<Indx...>)
         {
             auto f = std::forward<F>(func);
-            return (int)std::initializer_list<int>{(f(get<Indx, TupleFeed>(pod)), 0)...}.size();
+            return (int) std::initializer_list<int>{(f(get<Indx, TupleFeed>(pod)), 0)...}.size();
         }
     }
 

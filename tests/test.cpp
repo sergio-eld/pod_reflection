@@ -219,7 +219,7 @@ int main()
 
     printable_pod printablePod{4, 8.1516f, "23 42"};
 
-    int count = eld::for_each<TupleFeedAbc>(printablePod, printing());
+    size_t count = eld::for_each<TupleFeedAbc>(printablePod, printing());
 
 
     sizeof(std::string);
