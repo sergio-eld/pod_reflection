@@ -76,7 +76,7 @@ int main()
 
 
     detail::make_index_sequence<5> sdgb;
-
+    (void)sdgb;
 
     decltype(abc{}) abc1;
     decltype(abc{detail::implicitly_convertible()}) abc2;
@@ -133,6 +133,16 @@ int main()
     static_assert(std::is_same<std::string,
             eld::pod_element_t<6, abc, TupleFeedAbc>>::value, "Failed to deduce std::string in abc");
 
+    constexpr auto offsetsAbc = eld::detail::get_pod_offsets<abc, TupleFeedAbc>();
+    constexpr auto offsetA = offsetsAbc[0];
+    static_assert(offsetA == offsetof(abc, a), "Invalid offset for int a");
+
+    constexpr eld::detail::const_array<int, 16> constArray{4, 8, 15, 16, 23, 42};
+    constexpr auto elemV = constArray[3];
+
+    constexpr auto offsetB = offsetsAbc[1];
+    static_assert(offsetsAbc[1] == offsetof(abc, b), "Invalid offset for float b");
+
     static_assert(eld::detail::pod_elem_offset<0, abc, TupleFeedAbc>::value() ==
                   offsetof(abc, a), "Invalid offset for int a");
     static_assert(eld::detail::pod_elem_offset<1, abc, TupleFeedAbc>::value() ==
@@ -141,7 +151,7 @@ int main()
                   offsetof(abc, c), "Invalid offset for char c");
     static_assert(eld::detail::pod_elem_offset<3, abc, TupleFeedAbc>::value() ==
                   offsetof(abc, d), "Invalid offset for char d");
-    size_t offset_char_d = eld::detail::pod_elem_offset<3, abc, TupleFeedAbc>::value();
+    constexpr size_t offset_char_d = eld::detail::pod_elem_offset<3, abc, TupleFeedAbc>::value();
     size_t offset_int_e = eld::detail::pod_elem_offset<4, abc, TupleFeedAbc>::value();
 
     bool offset_remainder = !((offset_char_d + sizeof(char)) % alignof(abc));
@@ -210,7 +220,7 @@ int main()
 
     };
 
-    printable_pod printablePod{4, 8.1516, "23 42"};
+    printable_pod printablePod{4, 8.1516f, "23 42"};
 
     int count = eld::for_each<TupleFeedAbc>(printablePod, printing());
 
@@ -232,6 +242,10 @@ int main()
 
     static_assert(sizeof(dummy) == eld::detail::evaluated_pod_size<TupleFeedAbc, dummy>(),
             "");
+
+    using tuple_from_dummy = eld::pod_to_tuple_t<dummy, TupleFeedAbc>;
+    static_assert(std::is_same<std::tuple<int, char, std::string>,
+            tuple_from_dummy>(), "pod_to_tuple_t failed");
 
     sizeof(dummy);
 

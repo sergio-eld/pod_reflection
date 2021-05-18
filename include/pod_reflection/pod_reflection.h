@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <array>
 #include <cstddef>
 #include <limits>
 #include <tuple>
@@ -7,6 +8,31 @@
 
 namespace eld
 {
+    /*!
+     * Tag for a type that couldn't be deduced from provided tuple feed
+     */
+    struct undeduced
+    {
+    };
+
+    // TODO: add pointers?
+    using basic_feed = std::tuple<bool, unsigned,
+            signed,
+            char, signed char, unsigned char,
+            short, unsigned short,
+            int, unsigned int,
+            long, unsigned long,
+            long long, unsigned long long,
+            float, double, long double, long double
+    >;
+
+    // TODO: filter duplicates
+    template<typename ... ArgsT>
+    using extend_feed = decltype(std::tuple_cat(basic_feed(),
+                                                std::tuple<ArgsT>()...));
+
+    constexpr size_t invalid_offset = std::numeric_limits<size_t>::max();
+
     namespace detail
     {
 
@@ -81,6 +107,12 @@ namespace eld
         template<size_t N>
         using make_index_sequence = typename index_sequence_helper<N>::type;
 
+        /**
+         * Check if T is aggregate initialisable from given types.
+         * Yields True if T{From()...} is well-formed
+         * @tparam T Type for aggregate initialisation
+         * @tparam From Types
+         */
         template<typename, typename T, typename ...>
         struct is_aggregate_initialisable_ : std::false_type
         {
@@ -91,6 +123,12 @@ namespace eld
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #endif
 
+        /**
+         * Check if T is aggregate initialisable from given types.
+         * Yields True if T{From()...} is well-formed
+         * @tparam T Type for aggregate initialisation
+         * @tparam From Types
+         */
         template<typename T, typename ... From>
         struct is_aggregate_initialisable_<
                 void_t<decltype(T{{std::declval<From>()}...})>,
@@ -99,26 +137,15 @@ namespace eld
         {
         };
 
+        /**
+         * Check if T is aggregate initialisable from given types.
+         * Yields True if T{From()...} is well-formed
+         * @tparam T Type for aggregate initialisation
+         * @tparam From Types
+         */
         template<typename T, typename ... From>
         using is_aggregate_initialisable = is_aggregate_initialisable_<void_t<>, T, From...>;
 
-
-        template<typename POD, typename T, size_t PODMemberIndex,
-                typename = void,
-                typename = make_index_sequence<PODMemberIndex>>
-        struct is_pod_member_initialisable_from_t : std::false_type
-        {
-        };
-
-        template<typename POD, typename T, size_t PODMemberIndex,
-                size_t ... PrevArgs>
-        struct is_pod_member_initialisable_from_t<POD,
-                T,
-                PODMemberIndex,
-                void_t<decltype(POD{implicitly_convertible_s<PrevArgs>()..., explicitly_convertible<T>()})>,
-                index_sequence<PrevArgs...>> : std::true_type
-        {
-        };
 
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
@@ -138,7 +165,62 @@ namespace eld
             return count_args<POD, Args...,
                     implicitly_convertible>(is_aggregate_initialisable<POD, Args..., implicitly_convertible>());
         }
+    }
 
+    // TODO: write tests for pod_size
+    /*!
+     * Provides access to the number of elements in a POD type as a compile-time constant expression
+     * @tparam POD
+     */
+    template<typename POD>
+    struct pod_size : public std::integral_constant<size_t,
+            detail::count_args<POD>(detail::is_aggregate_initialisable<POD>())>
+    {
+    };
+
+    namespace detail
+    {
+
+        /**
+         * Helper class to check if POD member is initialisable from T
+         * @tparam POD
+         * @tparam T
+         * @tparam PODMemberIndex
+         * @todo finish documentation
+         */
+        template<typename POD, typename T, size_t PODMemberIndex,
+                typename = void,
+                typename = make_index_sequence<PODMemberIndex>>
+        struct is_pod_member_initialisable_from_t : std::false_type
+        {
+        };
+
+        /**
+         * Helper class to check if POD member is initialisable from T
+         * @tparam POD
+         * @tparam T
+         * @tparam PODMemberIndex
+         * @todo finish documentation
+         */
+        template<typename POD, typename T, size_t PODMemberIndex,
+                size_t ... PrevArgs>
+        struct is_pod_member_initialisable_from_t<POD,
+                T,
+                PODMemberIndex,
+                void_t<decltype(POD{implicitly_convertible_s<PrevArgs>()..., explicitly_convertible<T>()})>,
+                index_sequence<PrevArgs...>> : std::true_type
+        {
+        };
+
+
+        // TODO: make standalone function
+        /**
+         * Gets index within the TupleFeed of the Ith POD member<br>
+         * Complexity: N
+         * @tparam I POD member index
+         * @tparam POD
+         * @tparam TupleFeed tuple of types to iterate through
+         */
         template<size_t I, typename POD, typename TupleFeed>
         class tuple_index_from_pod_member
         {
@@ -182,44 +264,6 @@ namespace eld
             }
         };
 
-    }
-
-    // TODO: add pointers?
-    using basic_feed = std::tuple<bool, unsigned,
-            signed,
-            char, signed char, unsigned char,
-            short, unsigned short,
-            int, unsigned int,
-            long, unsigned long,
-            long long, unsigned long long,
-            float, double, long double, long double
-    >;
-
-    // TODO: filter duplicates
-    template<typename ... ArgsT>
-    using extend_feed = decltype(std::tuple_cat(basic_feed(),
-                                                std::tuple<ArgsT>()...));
-
-
-    // PUBLIC classes
-
-    /*!
-     * Provides access to the number of elements in a POD type as a compile-time constant expression
-     * @tparam POD
-     */
-    template<typename POD>
-    struct pod_size : public std::integral_constant<size_t,
-            detail::count_args<POD>(detail::is_aggregate_initialisable<POD>())>
-    {
-    };
-
-    /*!
-     * Tag for a type that couldn't be deduced from provided tuple feed
-     */
-    struct undeduced;
-
-    namespace detail
-    {
         template<size_t I, typename TupleFeed, bool = I >= std::tuple_size<TupleFeed>::value>
         struct deduced_tuple_elem
         {
@@ -255,7 +299,21 @@ namespace eld
 
     namespace detail
     {
+        template<typename POD, typename /*TupleFeed*/, typename = make_index_sequence<pod_size<POD>::value>>
+        struct pod_to_tuple;
 
+        template<typename POD, typename TupleFeed, size_t ... I>
+        struct pod_to_tuple<POD, TupleFeed, index_sequence<I...>>
+        {
+            using type = std::tuple<pod_element_t<I, POD, TupleFeed>...>;
+        };
+    }
+
+    template<typename POD, typename TupleFeed>
+    using pod_to_tuple_t = typename detail::pod_to_tuple<POD, TupleFeed>::type;
+
+    namespace detail
+    {
         template<typename POD, typename TupleFeed = basic_feed>
         constexpr size_t pod_packing()
         {
@@ -275,55 +333,144 @@ namespace eld
             }
         };
 
+
+        template<typename T, size_t ... LIndices, size_t ... RIndices>
+        constexpr std::array<T, sizeof...(LIndices) + sizeof...(RIndices)>
+        append_arrays(const std::array<T, sizeof...(LIndices)> &lArray,
+                      const std::array<T, sizeof...(RIndices)> &rArray,
+                      index_sequence<LIndices...>,
+                      index_sequence<RIndices...>)
+        {
+            return {lArray[LIndices]...,
+                    rArray[RIndices]...};
+        }
+
+        template<size_t PrevSize, size_t ToAppend, typename T>
+        constexpr std::array<T, PrevSize + ToAppend> append_arrays(const std::array<T, PrevSize> &prev,
+                                                                   const std::array<T, ToAppend> &append)
+        {
+            return append_arrays(prev, append, make_index_sequence<PrevSize>(), make_index_sequence<ToAppend>());
+        }
+
+        template<size_t l, size_t r>
+        struct is_equal : std::integral_constant<bool, l == r>
+        {
+        };
+
+        template<typename T, size_t N>
+        struct const_array
+        {
+            constexpr T operator[](size_t index) const
+            {
+                return data[index];
+            }
+
+            constexpr T back() const
+            {
+                return data[N - 1];
+            }
+
+            const T data[N];
+        };
+
+        // workaround for zero-sized c-arrays
+        template <typename T>
+        struct const_array<T, 0>
+        {
+            constexpr T operator[](size_t index) const
+            {
+                return T();// data[index];
+            }
+
+            constexpr T back() const
+            {
+                return T();
+            }
+            const T *data = nullptr;
+        };
+
+        template<size_t Index, typename POD, typename TupleFeed>
+        struct calc_offset
+        {
+            constexpr static std::ptrdiff_t value(const const_array<std::ptrdiff_t, Index> &offsets)
+            {
+                return !((offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value()) %
+                         pod_packing<POD, TupleFeed>()) ||
+                       pod_packing<POD, TupleFeed>() -
+                       (offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value()) %
+                       pod_packing<POD, TupleFeed>() >= pod_elem_size_<Index, POD, TupleFeed>::value() ?
+                       offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value() :
+                       offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value() +
+                       pod_packing<POD, TupleFeed>() -
+                       (offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value()) %
+                       pod_packing<POD, TupleFeed>();
+            }
+        };
+
+        template<typename POD, typename TupleFeed>
+        struct calc_offset<0, POD, TupleFeed>
+        {
+            constexpr static std::ptrdiff_t value(const const_array<std::ptrdiff_t, 0> &)
+            {
+                return 0;
+            }
+        };
+
+        template<typename T, size_t ... Indx>
+        constexpr const_array<T, sizeof...(Indx) + 1>
+        combine(const const_array<T, sizeof...(Indx)> &array, const T &val, index_sequence<Indx...>)
+        {
+            return {array[Indx]..., val};
+        }
+
+        template<typename T, size_t N>
+        constexpr const_array<T, N + 1> combine(const const_array<T, N> &array, const T &value)
+        {
+            return combine(array, value, make_index_sequence<N>());
+        }
+
+        // stop case: Index == pod_size
+        template<typename POD, typename TupleFeed>
+        constexpr const_array<std::ptrdiff_t, pod_size<POD>::value>
+        get_pod_offsets(const_array<std::ptrdiff_t, pod_size<POD>::value> offsets, std::true_type /*Index == pod_size*/)
+        {
+            return offsets;
+        }
+
+        // general recursion
+        template<typename POD, typename TupleFeed, size_t CurIndex>
+        constexpr const_array<std::ptrdiff_t, pod_size<POD>::value>
+        get_pod_offsets(const_array<std::ptrdiff_t, CurIndex> offsets, std::false_type)
+        {
+            return get_pod_offsets<POD, TupleFeed>(
+                    combine(offsets, /*TODO: calculate current*/
+                            calc_offset<CurIndex, POD, TupleFeed>::value(offsets)),
+                    is_equal<CurIndex + 1, pod_size<POD>::value>());
+        }
+
+        template<typename POD, typename TupleFeed>
+        constexpr const_array<std::ptrdiff_t, pod_size<POD>::value>
+        get_pod_offsets()
+        {
+            return get_pod_offsets<POD, TupleFeed>(const_array<std::ptrdiff_t, 0>{},
+                                                   is_equal<0, pod_size<POD>::value>());
+        }
+
         // TODO: check this function!
+        // TODO: optimize code generation, now it is n!
         template<size_t I, typename POD, typename TupleFeed>
         class pod_elem_offset
         {
             static_assert(!std::is_same<undeduced, pod_element_t<I, POD, TupleFeed>>::value,
                           "Can't get an offset for an undeduced POD element!");
 
-            template<size_t Indx>
-            constexpr static size_t pod_elem_size()
-            {
-                return pod_elem_size_<Indx, POD, TupleFeed>::value();
-            }
-
-//            template<size_t Indx>
-//            using pod_elem_size = pod_elem_size<Indx, POD, TupleFeed>;
-
         public:
-            constexpr static std::ptrdiff_t packing = pod_packing<POD, TupleFeed>();
-
             constexpr static std::ptrdiff_t value()
             {
-                return get_value(tag_s<0>(), 0);
+                return get_pod_offsets<POD, TupleFeed>()[I];
             }
-
-        private:
-            // stop case
-            constexpr static std::ptrdiff_t get_value(tag_s<I>, size_t offset)
-            {
-                return offset;
-            }
-
-            // general recursion
-            template<size_t N>
-            constexpr static std::ptrdiff_t get_value(tag_s<N>, size_t offset)
-            {
-                static_assert(!std::is_same<undeduced, pod_element_t<N, POD, TupleFeed>>::value,
-                              "Can't get an offset for a POD element: failed to deduce one of POD elements' type!");
-
-                // TODO: implement with packing
-                return get_value(tag_s<N + 1>(),
-                                 !((offset + pod_elem_size<N>()) % packing) ||
-                                 packing - (offset + pod_elem_size<N>()) % packing >= pod_elem_size<N + 1>() ?
-                                 offset + pod_elem_size<N>() :
-                                 offset + pod_elem_size<N>() +
-                                 packing - (offset + pod_elem_size<N>()) % packing
-                );
-            }
-
         };
+
 
         /*!
          * \warning Invalid implementation: alignof does not yield packing size of a struct
