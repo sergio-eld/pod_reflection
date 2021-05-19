@@ -106,7 +106,7 @@ int main()
 
     with_enum withEnum{Enoom::foo};
 
-    eld::for_each<TupleFeed>(withEnum, [](std::underlying_type<Enoom>::type v)
+    eld::for_each(withEnum, [](std::underlying_type<Enoom>::type v)
     {
         std::cout << +v << std::endl;
     }, eld::ignore_enums);

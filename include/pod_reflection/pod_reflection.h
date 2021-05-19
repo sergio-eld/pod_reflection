@@ -602,7 +602,7 @@ namespace eld
      * @return
      * \warning This function is UB. Need to write a workaround, i.e. - disable optimization
      */
-    template<size_t I, typename TupleFeed, typename POD>
+    template<size_t I, typename TupleFeed = basic_feed, typename POD>
     pod_element_t<I, POD, TupleFeed> &get(POD &pod)
     {
         static_assert(is_valid_pod<TupleFeed, POD>(), "Invalid POD struct: possibly contains bitfields");
@@ -612,7 +612,7 @@ namespace eld
                                                                       detail::pod_elem_offset<I, POD, TupleFeed>::value()));
     }
 
-    template<size_t I, typename TupleFeed, typename POD>
+    template<size_t I, typename TupleFeed = basic_feed, typename POD>
     pod_element_t<I, POD, TupleFeed, ignore_enums_t> &get(POD &pod, ignore_enums_t)
     {
         static_assert(is_valid_pod<TupleFeed, POD, ignore_enums_t>(),
@@ -632,7 +632,7 @@ namespace eld
      * @return
      * \warning This function is UB. Need to write a workaround, i.e. - disable optimization
      */
-    template<size_t I, typename TupleFeed, typename POD>
+    template<size_t I, typename TupleFeed = basic_feed, typename POD>
     const pod_element_t<I, POD, TupleFeed> &get(const POD &pod)
     {
         static_assert(is_valid_pod<TupleFeed, POD>(), "Invalid POD struct: possibly contains bitfields");
@@ -642,7 +642,7 @@ namespace eld
                                                                             detail::pod_elem_offset<I, POD, TupleFeed>::value()));
     }
 
-    template<size_t I, typename TupleFeed, typename POD>
+    template<size_t I, typename TupleFeed = basic_feed, typename POD>
     const pod_element_t<I, POD, TupleFeed, ignore_enums_t> &get(const POD &pod, ignore_enums_t)
     {
         static_assert(is_valid_pod<TupleFeed, POD, ignore_enums_t>(),
@@ -683,14 +683,14 @@ namespace eld
      * \todo assert that a POD does not have bitfields
      * \todo assert that a POD does not contain fixed size arrays
      */
-    template<typename TupleFeed, typename POD, typename F>
+    template<typename TupleFeed = basic_feed, typename POD, typename F>
     size_t for_each(POD &pod, F &&func)
     {
         return detail::for_each<TupleFeed>(pod, std::forward<F>(func),
                                            detail::make_index_sequence<pod_size<POD>::value>());
     }
 
-    template<typename TupleFeed, typename POD, typename F>
+    template<typename TupleFeed = basic_feed, typename POD, typename F>
     size_t for_each(POD &pod, F &&func, ignore_enums_t)
     {
         return detail::for_each<TupleFeed>(pod, std::forward<F>(func),
