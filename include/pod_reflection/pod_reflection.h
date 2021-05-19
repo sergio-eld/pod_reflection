@@ -609,8 +609,8 @@ namespace eld
     constexpr bool is_valid_pod()
     {
         // calculate expected POD size using offset
-        return !detail::contains<undeduced, POD>();
-//        return sizeof(POD) == detail::evaluated_pod_size<TupleFeed, POD>();
+        return !detail::contains<undeduced, POD>() &&
+                sizeof(POD) == detail::evaluated_pod_size<TupleFeed, POD>();
     }
 
     /*!
