@@ -120,20 +120,10 @@ int main()
     using found_int_t = eld::pod_element_t<0, abc, TupleFeedAbc>;
     static_assert(std::is_same<found_int_t, int>(), "");
 
-    constexpr size_t int_indx_0 =
-            eld::detail::tuple_index_from_pod_member<0, abc, std::tuple<int>>::value();
-    static_assert(int_indx_0 == 0, "");
     static_assert(std::is_same<int, eld::pod_element_t<0, abc, std::tuple<int>>>::value,
                   "");
-
-    constexpr size_t int_indx_1 =
-            eld::detail::tuple_index_from_pod_member<0, abc, std::tuple<double, int>>::value();
-    static_assert(int_indx_1 == 1, "");
     static_assert(std::is_same<int, eld::pod_element_t<0, abc, std::tuple<double, int>>>::value,
                   "");
-
-    constexpr size_t float_indx =
-            eld::detail::tuple_index_from_pod_member<1, abc, std::tuple<int, float>>::value();
 
     static_assert(std::is_same<std::string,
             eld::pod_element_t<6, abc, TupleFeedAbc>>::value, "Failed to deduce std::string in abc");

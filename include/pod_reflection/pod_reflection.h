@@ -21,12 +21,26 @@ namespace eld
     using basic_feed = std::tuple<bool,
 //            unsigned, // these are the same as int and unsigned int. TupleFeed must contain only unique types
 //            signed,
-            char, signed char, unsigned char,
-            short, unsigned short,
-            int, unsigned int
-            long, unsigned long,
-            long long, unsigned long long,
-            float, double, long double
+            char,
+            signed char,
+            unsigned char,
+
+            short,
+            unsigned short,
+
+            int,
+            unsigned int,
+
+            long,
+            unsigned long,
+
+            long long,
+            unsigned long long,
+
+            float,
+
+            double,
+            long double
     >;
 
     // TODO: filter duplicates
@@ -315,9 +329,6 @@ namespace eld
         template<typename Tuple, typename T, template<typename> class SFINAEPredicate, typename = T>
         using append_if_t = typename append_if<Tuple, T, SFINAEPredicate>::type;
 
-        // TODO: function to traverse a tuple and find a type (index) that can be used to initialize a POD element
-        // pass a template parameter (trait validator) that accepts a type
-
         // template for find_if in tuple
         template<typename Tuple, template<typename> class /*SFINAEPredicate*/, typename = void>
         struct filter;
@@ -351,9 +362,30 @@ namespace eld
             using type = typename std::tuple_element<Index, Tuple>::type;
         };
 
+        template<class...> struct disjunction : std::false_type
+        {
+        };
+        template<class B1> struct disjunction<B1> : B1
+        {
+        };
+        template<class B1, class... Bn>
+        struct disjunction<B1, Bn...>
+                : std::conditional<bool(B1::value), B1, disjunction<Bn...>>::type
+        {
+        };
+
+        template<typename T, typename Tuple>
+        struct contains : std::false_type
+        {
+        };
+
+        template<typename T, typename ... Types>
+        struct contains<T, std::tuple<Types...>> : disjunction<std::is_same<undeduced, Types>...>
+        {
+        };
+
         template<size_t Index, typename Tuple>
         using tuple_element_t = typename tuple_element<Index, Tuple>::type;
-
 
         template<size_t Index, typename POD, typename TupleFeed>
         class pod_element_type;
@@ -369,78 +401,12 @@ namespace eld
             static_assert(std::tuple_size<found_types>() <= 1, "Multiple types deduced!");
 
         public:
-
             using type = tuple_element_t<0, found_types>;
-//            using type = typename std::conditional<std::is_empty<found_types>::value, undeduced,
-//                    typename std::tuple_element<0, found_types>::type>::type;
-
         };
 
         template<size_t Index, typename POD, typename TupleFeed>
         using pod_element_type_t = typename pod_element_type<Index, POD, TupleFeed>::type;
 
-        // TODO: make standalone function
-        /**
-         * Gets index within the TupleFeed of the Ith POD member<br>
-         * Complexity: N
-         * @tparam I POD member index
-         * @tparam POD
-         * @tparam TupleFeed tuple of types to iterate through
-         */
-        template<size_t I, typename POD, typename TupleFeed>
-        class tuple_index_from_pod_member
-        {
-            static_assert(std::tuple_size<TupleFeed>(), "TupleFeed must not be empty!");
-
-        public:
-
-            // TODO: remove
-            template<typename T>
-            using is_initializable = std::integral_constant<bool,
-                    (bool) detail::is_pod_member_initialisable_from_t<POD, T, I>()>;
-
-            constexpr static size_t value()
-            {
-                return find_type(detail::tag_s<0>(),
-                                 is_initializable<typename std::tuple_element<0, TupleFeed>::type>());
-            }
-
-        private:
-
-            // stop case on failure when tuple index exceeded
-            constexpr static size_t find_type(detail::tag_s<std::tuple_size<TupleFeed>::value - 1>,
-                                              std::false_type)
-            {
-                return size_t() - 1;
-            }
-
-            // stop case on success
-            template<size_t tupleIndx>
-            constexpr static size_t find_type(detail::tag_s<tupleIndx>, std::true_type)
-            {
-                return tupleIndx;
-            }
-
-            // general recursion
-            template<size_t TupleIndex>
-            constexpr static size_t find_type(detail::tag_s<TupleIndex>, std::false_type)
-            {
-                return find_type(detail::tag_s<TupleIndex + 1>(),
-                                 is_initializable<typename std::tuple_element<TupleIndex + 1, TupleFeed>::type>());
-            }
-        };
-
-        template<size_t I, typename TupleFeed, bool = I >= std::tuple_size<TupleFeed>::value>
-        struct deduced_tuple_elem
-        {
-            using type = undeduced;
-        };
-
-        template<size_t I, typename TupleFeed>
-        struct deduced_tuple_elem<I, TupleFeed, false>
-        {
-            using type = typename std::tuple_element<I, TupleFeed>::type;
-        };
     }
 
     /*!
@@ -455,14 +421,11 @@ namespace eld
     {
         static_assert(std::tuple_size<TupleFeed>(), "TupleFeed must not be empty!");
 
-        using type = typename
-        detail::deduced_tuple_elem<detail::tuple_index_from_pod_member<I, POD, TupleFeed>::value(),
-                TupleFeed>::type;
+        using type = detail::pod_element_type_t<I, POD, TupleFeed>;
     };
 
     template<size_t I, typename POD, typename TupleFeed>
-    using pod_element_t = // typename pod_element<I, POD, TupleFeed>::type;
-    detail::pod_element_type_t<I, POD, TupleFeed>;
+    using pod_element_t = typename pod_element<I, POD, TupleFeed>::type;
 
     namespace detail
     {
@@ -606,7 +569,6 @@ namespace eld
             }
         };
 
-
         /*!
          * \warning Invalid implementation: alignof does not yield packing size of a struct
          * @tparam TupleFeed
@@ -647,7 +609,8 @@ namespace eld
     constexpr bool is_valid_pod()
     {
         // calculate expected POD size using offset
-        return sizeof(POD) == detail::evaluated_pod_size<TupleFeed, POD>();
+        return !detail::contains<undeduced, POD>();
+//        return sizeof(POD) == detail::evaluated_pod_size<TupleFeed, POD>();
     }
 
     /*!
