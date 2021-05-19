@@ -329,11 +329,11 @@ namespace eld
             return combine(array, value, make_index_sequence<N>());
         }
 
-        template<typename Tuple, typename T, template<typename> class /*SFINAEPredicate*/, typename = T>
+        template<typename Tuple, typename T, template<typename> class /*SFINAEPredicate*/>
         struct append_if;
 
         template<typename T, template<typename> class SFINAEPredicate, typename ... Types>
-        struct append_if<std::tuple<Types...>, T, SFINAEPredicate, T>
+        struct append_if<std::tuple<Types...>, T, SFINAEPredicate>
         {
             using type = typename std::conditional<SFINAEPredicate<T>::value,
                     std::tuple<Types..., T>, std::tuple<Types...>>::type;
