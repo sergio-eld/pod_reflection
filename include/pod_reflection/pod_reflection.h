@@ -15,15 +15,18 @@ namespace eld
     {
     };
 
+    // TODO: make tag ambiguous ?
+
     // TODO: add pointers?
-    using basic_feed = std::tuple<bool, unsigned,
-            signed,
+    using basic_feed = std::tuple<bool,
+//            unsigned, // these are the same as int and unsigned int. TupleFeed must contain only unique types
+//            signed,
             char, signed char, unsigned char,
             short, unsigned short,
-            int, unsigned int,
+            int, unsigned int
             long, unsigned long,
             long long, unsigned long long,
-            float, double, long double, long double
+            float, double, long double
     >;
 
     // TODO: filter duplicates
@@ -32,6 +35,12 @@ namespace eld
                                                 std::tuple<ArgsT>()...));
 
     constexpr size_t invalid_offset = std::numeric_limits<size_t>::max();
+
+    struct ignore_enums_t
+    {
+    };
+
+    constexpr ignore_enums_t ignore_enums{};
 
     namespace detail
     {
@@ -73,18 +82,39 @@ namespace eld
                     void_t<decltype(POD{T()..., implicitly_convertible()})>());
         }
 
+        template<typename T, bool /*false*/ = std::is_enum<T>::value>
+        struct unwrap_enum
+        {
+            using type = T;
+        };
+
+        template<typename T>
+        struct unwrap_enum<T, true>
+        {
+            using type = typename std::underlying_type<T>::type;
+        };
+
+        template<typename T>
+        using unwrap_enum_t = typename unwrap_enum<T>::type;
 
         /*!
  * \TODO: description
  * @tparam Allowed
  */
-        template<typename Allowed>
+        template<typename Allowed, typename /*ignore_enums_t*/= void>
         struct explicitly_convertible
         {
             template<typename To, typename = typename
             std::enable_if<std::is_same<To, Allowed>::value>::type>
             constexpr operator To() const noexcept;
+        };
 
+        template<typename Allowed>
+        struct explicitly_convertible<Allowed, ignore_enums_t>
+        {
+            template<typename To, typename = typename
+            std::enable_if<std::is_same<unwrap_enum_t<To>, Allowed>::value>::type>
+            constexpr operator To() const noexcept;
         };
 
         // index sequence only
@@ -147,8 +177,6 @@ namespace eld
         using is_aggregate_initialisable = is_aggregate_initialisable_<void_t<>, T, From...>;
 
 
-
-
         // stop case
         template<typename POD, typename ... Args>
         constexpr size_t count_args(std::false_type)
@@ -187,6 +215,7 @@ namespace eld
          * @todo finish documentation
          */
         template<typename POD, typename T, size_t PODMemberIndex,
+                typename /*ignore_enums_t*/ = void,
                 typename = void,
                 typename = make_index_sequence<PODMemberIndex>>
         struct is_pod_member_initialisable_from_t : std::false_type
@@ -205,11 +234,150 @@ namespace eld
         struct is_pod_member_initialisable_from_t<POD,
                 T,
                 PODMemberIndex,
+                void,
                 void_t<decltype(POD{implicitly_convertible_s<PrevArgs>()..., explicitly_convertible<T>()})>,
                 index_sequence<PrevArgs...>> : std::true_type
         {
         };
 
+        /**
+         * Helper class to check if POD member is initialisable from T. This specialization ignores enums.
+         * @tparam POD
+         * @tparam T
+         * @tparam PODMemberIndex
+         * @todo finish documentation
+         */
+        template<typename POD, typename T, size_t PODMemberIndex,
+                size_t ... PrevArgs>
+        struct is_pod_member_initialisable_from_t<POD,
+                T,
+                PODMemberIndex,
+                ignore_enums_t,
+                void_t<decltype(POD{implicitly_convertible_s<PrevArgs>()...,
+                                    explicitly_convertible<T, ignore_enums_t>()})>,
+                index_sequence<PrevArgs...>> : std::true_type
+        {
+        };
+
+        template<typename T, size_t N>
+        struct const_array
+        {
+            constexpr T operator[](size_t index) const
+            {
+                return data[index];
+            }
+
+            constexpr T back() const
+            {
+                return data[N - 1];
+            }
+
+            constexpr size_t size() const
+            {
+                return N;
+            }
+
+            const T data[N];
+        };
+
+        // workaround for zero-sized c-arrays
+        template<typename T>
+        struct const_array<T, 0>
+        {
+            constexpr T operator[](size_t index) const
+            {
+                return T();// data[index];
+            }
+
+            constexpr T back() const
+            {
+                return T();
+            }
+
+            constexpr size_t size() const
+            {
+                return 0;
+            }
+
+            const T *data = nullptr;
+        };
+
+        template<typename Tuple, typename T, template<typename> class /*SFINAEPredicate*/, typename = T>
+        struct append_if;
+
+        template<typename T, template<typename> class SFINAEPredicate, typename ... Types>
+        struct append_if<std::tuple<Types...>, T, SFINAEPredicate, T>
+        {
+            using type = typename std::conditional<SFINAEPredicate<T>::value,
+                    std::tuple<Types..., T>, std::tuple<Types...>>::type;
+        };
+
+        template<typename Tuple, typename T, template<typename> class SFINAEPredicate, typename = T>
+        using append_if_t = typename append_if<Tuple, T, SFINAEPredicate>::type;
+
+        // TODO: function to traverse a tuple and find a type (index) that can be used to initialize a POD element
+        // pass a template parameter (trait validator) that accepts a type
+
+        // template for find_if in tuple
+        template<typename Tuple, template<typename> class /*SFINAEPredicate*/, typename = void>
+        struct filter;
+
+        template<template<typename> class SFINAEPredicate, typename ... Types>
+        struct filter<std::tuple<Types...>, SFINAEPredicate, void>
+        {
+            using type = decltype(std::tuple_cat(append_if_t<std::tuple<>, Types, SFINAEPredicate>()...));
+        };
+
+        template<typename Tuple, template<typename> class SFINAEPredicate, typename = void>
+        using filter_t = typename filter<Tuple, SFINAEPredicate>::type;
+
+        template<typename Tuple, template<typename> class SFINAEPredicate, typename = void>
+        using find_first_t = typename std::conditional<std::is_empty<filter_t<Tuple, SFINAEPredicate>>::value,
+                undeduced,
+                typename std::tuple_element<0, filter_t<Tuple, SFINAEPredicate>>::type
+        >::type;
+
+
+        // workaround for index out of range in tuple
+        template<size_t Index, typename Tuple, bool /*OutOfRange* = true*/ = (Index >= std::tuple_size<Tuple>::value)>
+        struct tuple_element
+        {
+            using type = undeduced;
+        };
+
+        template<size_t Index, typename Tuple>
+        struct tuple_element<Index, Tuple, false>
+        {
+            using type = typename std::tuple_element<Index, Tuple>::type;
+        };
+
+        template<size_t Index, typename Tuple>
+        using tuple_element_t = typename tuple_element<Index, Tuple>::type;
+
+
+        template<size_t Index, typename POD, typename TupleFeed>
+        class pod_element_type;
+
+        template<size_t Index, typename POD, typename ... Types>
+        class pod_element_type<Index, POD, std::tuple<Types...>>
+        {
+        public:
+            template<typename T>
+            using is_initializable_t = is_pod_member_initialisable_from_t<POD, T, Index>;
+
+            using found_types = decltype(std::tuple_cat(append_if_t<std::tuple<>, Types, is_initializable_t>()...));
+            static_assert(std::tuple_size<found_types>() <= 1, "Multiple types deduced!");
+
+        public:
+
+            using type = tuple_element_t<0, found_types>;
+//            using type = typename std::conditional<std::is_empty<found_types>::value, undeduced,
+//                    typename std::tuple_element<0, found_types>::type>::type;
+
+        };
+
+        template<size_t Index, typename POD, typename TupleFeed>
+        using pod_element_type_t = typename pod_element_type<Index, POD, TupleFeed>::type;
 
         // TODO: make standalone function
         /**
@@ -293,7 +461,8 @@ namespace eld
     };
 
     template<size_t I, typename POD, typename TupleFeed>
-    using pod_element_t = typename pod_element<I, POD, TupleFeed>::type;
+    using pod_element_t = // typename pod_element<I, POD, TupleFeed>::type;
+    detail::pod_element_type_t<I, POD, TupleFeed>;
 
     namespace detail
     {
@@ -353,38 +522,6 @@ namespace eld
         template<size_t l, size_t r>
         struct is_equal : std::integral_constant<bool, l == r>
         {
-        };
-
-        template<typename T, size_t N>
-        struct const_array
-        {
-            constexpr T operator[](size_t index) const
-            {
-                return data[index];
-            }
-
-            constexpr T back() const
-            {
-                return data[N - 1];
-            }
-
-            const T data[N];
-        };
-
-        // workaround for zero-sized c-arrays
-        template <typename T>
-        struct const_array<T, 0>
-        {
-            constexpr T operator[](size_t index) const
-            {
-                return T();// data[index];
-            }
-
-            constexpr T back() const
-            {
-                return T();
-            }
-            const T *data = nullptr;
         };
 
         template<size_t Index, typename POD, typename TupleFeed>
@@ -553,52 +690,12 @@ namespace eld
 
     namespace detail
     {
-        constexpr int fold(int f)
+        template<typename TupleFeed, typename POD, typename F, size_t ... Indx>
+        size_t for_each(POD &pod, F &&func, index_sequence<Indx...>)
         {
-            return f;
+            auto f = std::forward<F>(func);
+            return (int) std::initializer_list<int>{(f(get<Indx, TupleFeed>(pod)), 0)...}.size();
         }
-
-        // TODO: fix reverse order
-        template<typename First, typename ... Last>
-        constexpr int fold(First first, Last ... last)
-        {
-            return first + fold(last...);
-        }
-
-        template<typename POD, typename TupleFeed, typename = make_index_sequence<(pod_size<POD>())>>
-        struct for_each_;
-
-        // workaround for empty structs
-        template<typename POD, typename TupleFeed>
-        struct for_each_<POD, TupleFeed, index_sequence<>>
-        {
-            template<typename F>
-            int operator()(POD &, F &&)
-            {
-                return 0;
-            }
-        };
-
-        template<typename POD, typename TupleFeed, size_t ... I>
-        struct for_each_<POD, TupleFeed, index_sequence<I...>>
-        {
-            template<typename E, typename F>
-            int invoke(E &pod_elem, F &f)
-            {
-                f(pod_elem);
-                return 1;
-            }
-
-            // TODO: use recursion
-            template<typename F>
-            int operator()(POD &pod, F &&f)
-            {
-                auto func = std::forward<F>(f);
-                return fold(invoke(get<sizeof...(I) - 1 - I, TupleFeed>(pod), func)...);
-            }
-        };
-
-        // TODO: for_each deduced, that is skipping undeduced elements
     }
 
     /*!
@@ -611,17 +708,21 @@ namespace eld
      * @param func
      * @return
      * \warning Invokes elements in reverse order
-     * \todo fix the order of elements invocation
      * \todo assert that a POD does not have bitfields
      * \todo assert that a POD does not contain fixed size arrays
      */
     template<typename TupleFeed, typename POD, typename F>
-    int for_each(POD &pod, F &&func)
+    size_t for_each(POD &pod, F &&func)
     {
-        // static_assert(is_valid_pod<TupleFeed, POD>(),
-        //              "POD type is invalid: possibly contains bitfields");
-        detail::for_each_<POD, TupleFeed> forEach{};
-        return forEach(pod, std::forward<F>(func));
+        return detail::for_each<TupleFeed>(pod, std::forward<F>(func),
+                                           detail::make_index_sequence<pod_size<POD>::value>());
+    }
+
+    template<typename TupleFeed, typename POD, typename F>
+    size_t for_each(POD &pod, F &&func, ignore_enums_t)
+    {
+        return detail::for_each<TupleFeed>(pod, std::forward<F>(func),
+                                           detail::make_index_sequence<pod_size<POD>::value>());
     }
 
 }

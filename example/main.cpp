@@ -9,7 +9,7 @@ struct abc
     int a;
     float b;
     char c,
-    d;
+            d;
     int e;
     double f;
     std::string g;
@@ -23,20 +23,34 @@ struct dce
 };
 
 struct none
-{};
+{
+};
 
 // This might be an endian converting class!
 struct Printer
 {
-    template <typename T>
-    void operator()(const T& t)
+    template<typename T>
+    void operator()(const T &t)
     {
         std::cout << t << " ";
     }
 };
 
-template <size_t I>
+template<size_t I>
 using array_i = std::array<std::ptrdiff_t, I>;
+
+enum class Enoom : uint8_t
+{
+    foo
+};
+
+struct with_enum
+{
+    Enoom enoom;
+};
+
+template <typename T>
+using is_fundamental = std::is_fundamental<T>;
 
 int main()
 {
@@ -80,6 +94,27 @@ int main()
 
     constexpr auto appendArrays = eld::detail::append_arrays(std::array<int, 4>{4, 8, 15, 16},
                                                              std::array<int, 2>{23, 42});
+
+    decltype(with_enum{eld::detail::explicitly_convertible<uint8_t, eld::ignore_enums_t>()}) s;
+    (void) s;
+
+    eld::detail::filter<TupleFeed, std::is_fundamental>{};
+
+    static_assert(std::is_same<std::tuple<int>, eld::detail::append_if_t<std::tuple<>, int, std::is_fundamental>>(),
+                  "");
+    eld::detail::append_if<std::tuple<>, int, std::is_fundamental>{};
+
+    using tuple_list_t = std::tuple<std::string, int, none, double, char, abc, bool>;
+    using tuple_found_expected_t = std::tuple<int, double, char, bool>;
+    using tuple_filtered_t = eld::detail::filter_t<tuple_list_t, std::is_fundamental>;
+
+    static_assert(std::is_same<tuple_filtered_t, tuple_found_expected_t>(), "");
+
+    static_assert(std::is_empty<std::tuple<>>(), "");
+
+    using found_int_t = eld::detail::find_first_t<tuple_list_t, std::is_fundamental>;
+    static_assert(std::is_same<found_int_t, int>(), "");
+
 
     return 0;
 }

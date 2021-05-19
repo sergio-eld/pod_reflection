@@ -115,6 +115,11 @@ int main()
 
     // successful search
 
+    eld::detail::pod_element_type<0, abc, TupleFeedAbc>::found_types f{};
+
+    using found_int_t = eld::pod_element_t<0, abc, TupleFeedAbc>;
+    static_assert(std::is_same<found_int_t, int>(), "");
+
     constexpr size_t int_indx_0 =
             eld::detail::tuple_index_from_pod_member<0, abc, std::tuple<int>>::value();
     static_assert(int_indx_0 == 0, "");
@@ -191,9 +196,6 @@ int main()
     abcTest.e = 16;
     eld::get<4, TupleFeedAbc>(abcTest) = 24;
 
-    constexpr int folded = eld::detail::fold(1, 1, 1, 1);
-    static_assert(folded == 4, "Failed to fold expressions");
-
     struct printable_pod
     {
         int a;
@@ -222,7 +224,7 @@ int main()
 
     printable_pod printablePod{4, 8.1516f, "23 42"};
 
-    int count = eld::for_each<TupleFeedAbc>(printablePod, printing());
+    size_t count = eld::for_each<TupleFeedAbc>(printablePod, printing());
 
 
     sizeof(std::string);
@@ -254,10 +256,6 @@ int main()
                 sizeInvalidPod =
             eld::detail::evaluated_pod_size<TupleFeedAbc, invalid_pod>(),
                     sizeDummy = eld::detail::evaluated_pod_size<TupleFeedAbc, dummy>();
-
-
-
-    // static_assert(eld::is_valid_pod<TupleFeedAbc, invalid_pod>(), "");
 
     return 0;
 }
