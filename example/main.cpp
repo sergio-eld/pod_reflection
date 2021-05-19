@@ -49,6 +49,9 @@ struct with_enum
     Enoom enoom;
 };
 
+template <typename T>
+using is_fundamental = std::is_fundamental<T>;
+
 int main()
 {
     std::cout << "struct abc has " << eld::pod_size<abc>() << " elements" << std::endl;
@@ -111,6 +114,7 @@ int main()
 
     using found_int_t = eld::detail::find_first_t<tuple_list_t, std::is_fundamental>;
     static_assert(std::is_same<found_int_t, int>(), "");
+
 
     return 0;
 }

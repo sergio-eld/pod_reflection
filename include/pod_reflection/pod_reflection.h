@@ -15,15 +15,18 @@ namespace eld
     {
     };
 
+    // TODO: make tag ambiguous ?
+
     // TODO: add pointers?
-    using basic_feed = std::tuple<bool, unsigned,
-            signed,
+    using basic_feed = std::tuple<bool,
+//            unsigned, // these are the same as int and unsigned int. TupleFeed must contain only unique types
+//            signed,
             char, signed char, unsigned char,
             short, unsigned short,
-            int, unsigned int,
+            int, unsigned int
             long, unsigned long,
             long long, unsigned long long,
-            float, double, long double, long double
+            float, double, long double
     >;
 
     // TODO: filter duplicates
@@ -335,6 +338,47 @@ namespace eld
         >::type;
 
 
+        // workaround for index out of range in tuple
+        template<size_t Index, typename Tuple, bool /*OutOfRange* = true*/ = (Index >= std::tuple_size<Tuple>::value)>
+        struct tuple_element
+        {
+            using type = undeduced;
+        };
+
+        template<size_t Index, typename Tuple>
+        struct tuple_element<Index, Tuple, false>
+        {
+            using type = typename std::tuple_element<Index, Tuple>::type;
+        };
+
+        template<size_t Index, typename Tuple>
+        using tuple_element_t = typename tuple_element<Index, Tuple>::type;
+
+
+        template<size_t Index, typename POD, typename TupleFeed>
+        class pod_element_type;
+
+        template<size_t Index, typename POD, typename ... Types>
+        class pod_element_type<Index, POD, std::tuple<Types...>>
+        {
+        public:
+            template<typename T>
+            using is_initializable_t = is_pod_member_initialisable_from_t<POD, T, Index>;
+
+            using found_types = decltype(std::tuple_cat(append_if_t<std::tuple<>, Types, is_initializable_t>()...));
+            static_assert(std::tuple_size<found_types>() <= 1, "Multiple types deduced!");
+
+        public:
+
+            using type = tuple_element_t<0, found_types>;
+//            using type = typename std::conditional<std::is_empty<found_types>::value, undeduced,
+//                    typename std::tuple_element<0, found_types>::type>::type;
+
+        };
+
+        template<size_t Index, typename POD, typename TupleFeed>
+        using pod_element_type_t = typename pod_element_type<Index, POD, TupleFeed>::type;
+
         // TODO: make standalone function
         /**
          * Gets index within the TupleFeed of the Ith POD member<br>
@@ -417,7 +461,8 @@ namespace eld
     };
 
     template<size_t I, typename POD, typename TupleFeed>
-    using pod_element_t = typename pod_element<I, POD, TupleFeed>::type;
+    using pod_element_t = // typename pod_element<I, POD, TupleFeed>::type;
+    detail::pod_element_type_t<I, POD, TupleFeed>;
 
     namespace detail
     {

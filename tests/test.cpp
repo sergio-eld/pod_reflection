@@ -115,6 +115,11 @@ int main()
 
     // successful search
 
+    eld::detail::pod_element_type<0, abc, TupleFeedAbc>::found_types f{};
+
+    using found_int_t = eld::pod_element_t<0, abc, TupleFeedAbc>;
+    static_assert(std::is_same<found_int_t, int>(), "");
+
     constexpr size_t int_indx_0 =
             eld::detail::tuple_index_from_pod_member<0, abc, std::tuple<int>>::value();
     static_assert(int_indx_0 == 0, "");
@@ -251,10 +256,6 @@ int main()
                 sizeInvalidPod =
             eld::detail::evaluated_pod_size<TupleFeedAbc, invalid_pod>(),
                     sizeDummy = eld::detail::evaluated_pod_size<TupleFeedAbc, dummy>();
-
-
-
-    // static_assert(eld::is_valid_pod<TupleFeedAbc, invalid_pod>(), "");
 
     return 0;
 }
