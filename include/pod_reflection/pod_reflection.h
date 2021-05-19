@@ -316,6 +316,19 @@ namespace eld
             const T *data = nullptr;
         };
 
+        template<typename T, size_t ... Indx>
+        constexpr const_array<T, sizeof...(Indx) + 1>
+        combine(const const_array<T, sizeof...(Indx)> &array, const T &val, index_sequence<Indx...>)
+        {
+            return {array[Indx]..., val};
+        }
+
+        template<typename T, size_t N>
+        constexpr const_array<T, N + 1> combine(const const_array<T, N> &array, const T &value)
+        {
+            return combine(array, value, make_index_sequence<N>());
+        }
+
         template<typename Tuple, typename T, template<typename> class /*SFINAEPredicate*/, typename = T>
         struct append_if;
 
@@ -387,15 +400,15 @@ namespace eld
         template<size_t Index, typename Tuple>
         using tuple_element_t = typename tuple_element<Index, Tuple>::type;
 
-        template<size_t Index, typename POD, typename TupleFeed>
+        template<size_t Index, typename POD, typename /*TupleFeed*/, typename /*ignore_enums_t*/ = void>
         class pod_element_type;
 
-        template<size_t Index, typename POD, typename ... Types>
-        class pod_element_type<Index, POD, std::tuple<Types...>>
+        template<size_t Index, typename POD, typename IgnoreEnums, typename ... Types>
+        class pod_element_type<Index, POD, std::tuple<Types...>, IgnoreEnums>
         {
         public:
             template<typename T>
-            using is_initializable_t = is_pod_member_initialisable_from_t<POD, T, Index>;
+            using is_initializable_t = is_pod_member_initialisable_from_t<POD, T, Index, IgnoreEnums>;
 
             using found_types = decltype(std::tuple_cat(append_if_t<std::tuple<>, Types, is_initializable_t>()...));
             static_assert(std::tuple_size<found_types>() <= 1, "Multiple types deduced!");
@@ -403,10 +416,6 @@ namespace eld
         public:
             using type = tuple_element_t<0, found_types>;
         };
-
-        template<size_t Index, typename POD, typename TupleFeed>
-        using pod_element_type_t = typename pod_element_type<Index, POD, TupleFeed>::type;
-
     }
 
     /*!
@@ -416,34 +425,35 @@ namespace eld
      * @tparam POD - POD type
      * @tparam TupleFeed - Tuple of types to be used as a feed to deduce an element
      */
-    template<size_t I, typename POD, typename TupleFeed>
+    template<size_t I, typename POD, typename TupleFeed, typename IgnoreEnums = void>
     struct pod_element
     {
         static_assert(std::tuple_size<TupleFeed>(), "TupleFeed must not be empty!");
 
-        using type = detail::pod_element_type_t<I, POD, TupleFeed>;
+        using type = typename detail::pod_element_type<I, POD, TupleFeed, IgnoreEnums>::type;
     };
 
-    template<size_t I, typename POD, typename TupleFeed>
-    using pod_element_t = typename pod_element<I, POD, TupleFeed>::type;
+    template<size_t I, typename POD, typename TupleFeed, typename IgnoreEnums = void>
+    using pod_element_t = typename pod_element<I, POD, TupleFeed, IgnoreEnums>::type;
 
     namespace detail
     {
-        template<typename POD, typename /*TupleFeed*/, typename = make_index_sequence<pod_size<POD>::value>>
+        template<typename POD, typename /*TupleFeed*/, typename /*IgnoreEnums*/ = void, typename = make_index_sequence<pod_size<POD>::value>>
         struct pod_to_tuple;
 
-        template<typename POD, typename TupleFeed, size_t ... I>
-        struct pod_to_tuple<POD, TupleFeed, index_sequence<I...>>
+        template<typename POD, typename TupleFeed, typename IgnoreEnums, size_t ... I>
+        struct pod_to_tuple<POD, TupleFeed, IgnoreEnums, index_sequence<I...>>
         {
-            using type = std::tuple<pod_element_t<I, POD, TupleFeed>...>;
+            using type = std::tuple<pod_element_t<I, POD, TupleFeed, IgnoreEnums>...>;
         };
     }
 
-    template<typename POD, typename TupleFeed>
-    using pod_to_tuple_t = typename detail::pod_to_tuple<POD, TupleFeed>::type;
+    template<typename POD, typename TupleFeed, typename IgnoreEnums = void>
+    using pod_to_tuple_t = typename detail::pod_to_tuple<POD, TupleFeed, IgnoreEnums>::type;
 
     namespace detail
     {
+        // TODO: remove TupleFeed?
         template<typename POD, typename TupleFeed = basic_feed>
         constexpr size_t pod_packing()
         {
@@ -452,10 +462,10 @@ namespace eld
                    4;//alignof(POD);
         }
 
-        template<size_t I, typename POD, typename TupleFeed>
+        template<size_t I, typename POD, typename TupleFeed, typename IgnoreEnums = void>
         struct pod_elem_size_
         {
-            using type = pod_element_t<I, POD, TupleFeed>;
+            using type = pod_element_t<I, POD, TupleFeed, IgnoreEnums>;
 
             constexpr static size_t value()
             {
@@ -463,50 +473,31 @@ namespace eld
             }
         };
 
-
-        template<typename T, size_t ... LIndices, size_t ... RIndices>
-        constexpr std::array<T, sizeof...(LIndices) + sizeof...(RIndices)>
-        append_arrays(const std::array<T, sizeof...(LIndices)> &lArray,
-                      const std::array<T, sizeof...(RIndices)> &rArray,
-                      index_sequence<LIndices...>,
-                      index_sequence<RIndices...>)
-        {
-            return {lArray[LIndices]...,
-                    rArray[RIndices]...};
-        }
-
-        template<size_t PrevSize, size_t ToAppend, typename T>
-        constexpr std::array<T, PrevSize + ToAppend> append_arrays(const std::array<T, PrevSize> &prev,
-                                                                   const std::array<T, ToAppend> &append)
-        {
-            return append_arrays(prev, append, make_index_sequence<PrevSize>(), make_index_sequence<ToAppend>());
-        }
-
         template<size_t l, size_t r>
         struct is_equal : std::integral_constant<bool, l == r>
         {
         };
 
-        template<size_t Index, typename POD, typename TupleFeed>
+        template<size_t Index, typename POD, typename TupleFeed, typename IgnoreEnums = void>
         struct calc_offset
         {
             constexpr static std::ptrdiff_t value(const const_array<std::ptrdiff_t, Index> &offsets)
             {
-                return !((offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value()) %
+                return !((offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed, IgnoreEnums>::value()) %
                          pod_packing<POD, TupleFeed>()) ||
                        pod_packing<POD, TupleFeed>() -
-                       (offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value()) %
-                       pod_packing<POD, TupleFeed>() >= pod_elem_size_<Index, POD, TupleFeed>::value() ?
-                       offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value() :
-                       offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value() +
+                       (offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed, IgnoreEnums>::value()) %
+                       pod_packing<POD, TupleFeed>() >= pod_elem_size_<Index, POD, TupleFeed, IgnoreEnums>::value() ?
+                       offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed, IgnoreEnums>::value() :
+                       offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed, IgnoreEnums>::value() +
                        pod_packing<POD, TupleFeed>() -
-                       (offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed>::value()) %
+                       (offsets.back() + pod_elem_size_<Index - 1, POD, TupleFeed, IgnoreEnums>::value()) %
                        pod_packing<POD, TupleFeed>();
             }
         };
 
-        template<typename POD, typename TupleFeed>
-        struct calc_offset<0, POD, TupleFeed>
+        template<typename POD, typename TupleFeed, typename IgnoreEnums>
+        struct calc_offset<0, POD, TupleFeed, IgnoreEnums>
         {
             constexpr static std::ptrdiff_t value(const const_array<std::ptrdiff_t, 0> &)
             {
@@ -514,21 +505,8 @@ namespace eld
             }
         };
 
-        template<typename T, size_t ... Indx>
-        constexpr const_array<T, sizeof...(Indx) + 1>
-        combine(const const_array<T, sizeof...(Indx)> &array, const T &val, index_sequence<Indx...>)
-        {
-            return {array[Indx]..., val};
-        }
-
-        template<typename T, size_t N>
-        constexpr const_array<T, N + 1> combine(const const_array<T, N> &array, const T &value)
-        {
-            return combine(array, value, make_index_sequence<N>());
-        }
-
         // stop case: Index == pod_size
-        template<typename POD, typename TupleFeed>
+        template<typename POD, typename TupleFeed, typename IgnoreEnums>
         constexpr const_array<std::ptrdiff_t, pod_size<POD>::value>
         get_pod_offsets(const_array<std::ptrdiff_t, pod_size<POD>::value> offsets, std::true_type /*Index == pod_size*/)
         {
@@ -536,36 +514,36 @@ namespace eld
         }
 
         // general recursion
-        template<typename POD, typename TupleFeed, size_t CurIndex>
+        template<typename POD, typename TupleFeed, typename IgnoreEnums, size_t CurIndex>
         constexpr const_array<std::ptrdiff_t, pod_size<POD>::value>
         get_pod_offsets(const_array<std::ptrdiff_t, CurIndex> offsets, std::false_type)
         {
-            return get_pod_offsets<POD, TupleFeed>(
+            return get_pod_offsets<POD, TupleFeed, IgnoreEnums>(
                     combine(offsets, /*TODO: calculate current*/
                             calc_offset<CurIndex, POD, TupleFeed>::value(offsets)),
                     is_equal<CurIndex + 1, pod_size<POD>::value>());
         }
 
-        template<typename POD, typename TupleFeed>
+        template<typename POD, typename TupleFeed, typename IgnoreEnums = void>
         constexpr const_array<std::ptrdiff_t, pod_size<POD>::value>
         get_pod_offsets()
         {
-            return get_pod_offsets<POD, TupleFeed>(const_array<std::ptrdiff_t, 0>{},
-                                                   is_equal<0, pod_size<POD>::value>());
+            return get_pod_offsets<POD, TupleFeed, IgnoreEnums>(const_array<std::ptrdiff_t, 0>{},
+                                                                is_equal<0, pod_size<POD>::value>());
         }
 
         // TODO: check this function!
         // TODO: optimize code generation, now it is n!
-        template<size_t I, typename POD, typename TupleFeed>
+        template<size_t I, typename POD, typename TupleFeed, typename IgnoreEnums = void>
         class pod_elem_offset
         {
-            static_assert(!std::is_same<undeduced, pod_element_t<I, POD, TupleFeed>>::value,
+            static_assert(!std::is_same<undeduced, pod_element_t<I, POD, TupleFeed, IgnoreEnums>>::value,
                           "Can't get an offset for an undeduced POD element!");
 
         public:
             constexpr static std::ptrdiff_t value()
             {
-                return get_pod_offsets<POD, TupleFeed>()[I];
+                return get_pod_offsets<POD, TupleFeed, IgnoreEnums>()[I];
             }
         };
 
@@ -575,18 +553,20 @@ namespace eld
          * @tparam POD
          * @return
          */
-        template<typename TupleFeed, typename POD>
+        template<typename TupleFeed, typename POD, typename IgnoreEnums = void>
         constexpr size_t evaluated_pod_size()
         {
-            return (pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed>::value() +
-                    sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed>)) % pod_packing<POD, TupleFeed>() ?
-                   pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed>::value() +
-                   sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed>) +
-                   pod_packing<POD, TupleFeed>() - (pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed>::value() +
-                                                    sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed>)) %
-                                                   pod_packing<POD, TupleFeed>() :
-                   pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed>::value() +
-                   sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed>);
+            return (pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed, IgnoreEnums>::value() +
+                    sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed, IgnoreEnums>)) %
+                   pod_packing<POD, TupleFeed>() ?
+                   pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed, IgnoreEnums>::value() +
+                   sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed, IgnoreEnums>) +
+                   pod_packing<POD, TupleFeed>() -
+                   (pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed, IgnoreEnums>::value() +
+                    sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed, IgnoreEnums>)) %
+                   pod_packing<POD, TupleFeed>() :
+                   pod_elem_offset<pod_size<POD>() - 1, POD, TupleFeed, IgnoreEnums>::value() +
+                   sizeof(pod_element_t<pod_size<POD>() - 1, POD, TupleFeed, IgnoreEnums>);
         }
 
     }
@@ -605,12 +585,12 @@ namespace eld
      * \todo check this function
      * \todo return false if some of the elements have not been deduced
      */
-    template<typename TupleFeed, typename POD>
+    template<typename TupleFeed, typename POD, typename IgnoreEnums = void>
     constexpr bool is_valid_pod()
     {
         // calculate expected POD size using offset
         return !detail::contains<undeduced, POD>() &&
-                sizeof(POD) == detail::evaluated_pod_size<TupleFeed, POD>();
+               sizeof(POD) == detail::evaluated_pod_size<TupleFeed, POD, IgnoreEnums>();
     }
 
     /*!
@@ -632,6 +612,17 @@ namespace eld
                                                                       detail::pod_elem_offset<I, POD, TupleFeed>::value()));
     }
 
+    template<size_t I, typename TupleFeed, typename POD>
+    pod_element_t<I, POD, TupleFeed> &get(POD &pod, ignore_enums_t)
+    {
+        static_assert(is_valid_pod<TupleFeed, POD, ignore_enums_t>(),
+                      "Invalid POD struct: possibly contains bitfields");
+        static_assert(!std::is_same<undeduced, pod_element_t<I, POD, TupleFeed, ignore_enums_t>>::value,
+                      "Can't get an undeduced POD element!");
+        return *reinterpret_cast<pod_element_t<I, POD, TupleFeed, ignore_enums_t> *>(((std::ptrdiff_t) &pod +
+                                                                                      detail::pod_elem_offset<I, POD, TupleFeed, ignore_enums_t>::value()));
+    }
+
     /*!
      * Extracts the Ith element from the POD structure
      * @tparam I - index of an element to access
@@ -651,6 +642,17 @@ namespace eld
                                                                             detail::pod_elem_offset<I, POD, TupleFeed>::value()));
     }
 
+    template<size_t I, typename TupleFeed, typename POD>
+    const pod_element_t<I, POD, TupleFeed> &get(const POD &pod, ignore_enums_t)
+    {
+        static_assert(is_valid_pod<TupleFeed, POD, ignore_enums_t>(),
+                      "Invalid POD struct: possibly contains bitfields");
+        static_assert(!std::is_same<undeduced, pod_element_t<I, POD, TupleFeed, ignore_enums_t>>::value,
+                      "Can't get an undeduced POD element!");
+        return *reinterpret_cast<const pod_element_t<I, POD, TupleFeed, ignore_enums_t> *>(((std::ptrdiff_t) &pod +
+                                                                                            detail::pod_elem_offset<I, POD, TupleFeed, ignore_enums_t>::value()));
+    }
+
     namespace detail
     {
         template<typename TupleFeed, typename POD, typename F, size_t ... Indx>
@@ -658,6 +660,13 @@ namespace eld
         {
             auto f = std::forward<F>(func);
             return (int) std::initializer_list<int>{(f(get<Indx, TupleFeed>(pod)), 0)...}.size();
+        }
+
+        template<typename TupleFeed, typename POD, typename F, size_t ... Indx>
+        size_t for_each(POD &pod, F &&func, index_sequence<Indx...>, ignore_enums_t)
+        {
+            auto f = std::forward<F>(func);
+            return (int) std::initializer_list<int>{(f(get<Indx, TupleFeed>(pod), ignore_enums_t()), 0)...}.size();
         }
     }
 
@@ -685,7 +694,7 @@ namespace eld
     size_t for_each(POD &pod, F &&func, ignore_enums_t)
     {
         return detail::for_each<TupleFeed>(pod, std::forward<F>(func),
-                                           detail::make_index_sequence<pod_size<POD>::value>());
+                                           detail::make_index_sequence<pod_size<POD>::value>(), ignore_enums_t());
     }
 
 }

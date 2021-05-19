@@ -92,11 +92,11 @@ int main()
     using expected_res_array_t = const std::array<std::ptrdiff_t, eld::pod_size<abc>::value>;
 //    static_assert(std::is_same<expected_res_array_t, decltype(abcOffsets)>(), "Offsets arrays types mismatch!");
 
-    constexpr auto appendArrays = eld::detail::append_arrays(std::array<int, 4>{4, 8, 15, 16},
-                                                             std::array<int, 2>{23, 42});
 
     decltype(with_enum{eld::detail::explicitly_convertible<uint8_t, eld::ignore_enums_t>()}) s;
     (void) s;
+
+
 
     eld::detail::filter<TupleFeed, std::is_fundamental>{};
 
