@@ -41,7 +41,7 @@ using array_i = std::array<std::ptrdiff_t, I>;
 
 enum class Enoom : uint8_t
 {
-    foo
+    foo = 42
 };
 
 struct with_enum
@@ -92,11 +92,24 @@ int main()
     using expected_res_array_t = const std::array<std::ptrdiff_t, eld::pod_size<abc>::value>;
 //    static_assert(std::is_same<expected_res_array_t, decltype(abcOffsets)>(), "Offsets arrays types mismatch!");
 
-    constexpr auto appendArrays = eld::detail::append_arrays(std::array<int, 4>{4, 8, 15, 16},
-                                                             std::array<int, 2>{23, 42});
 
     decltype(with_enum{eld::detail::explicitly_convertible<uint8_t, eld::ignore_enums_t>()}) s;
     (void) s;
+    static_assert(std::is_same<typename std::underlying_type<Enoom>::type,
+            eld::pod_element_t<0, with_enum, TupleFeed, eld::ignore_enums_t>>(), "");
+
+
+    constexpr auto withEnumOffsets = eld::detail::get_pod_offsets<with_enum, TupleFeed, eld::ignore_enums_t>();
+    static_assert(withEnumOffsets[0] == 0, "");
+
+    static_assert(eld::is_valid_pod<TupleFeed, with_enum, eld::ignore_enums_t>(), "");
+
+    with_enum withEnum{Enoom::foo};
+
+    eld::for_each(withEnum, [](std::underlying_type<Enoom>::type v)
+    {
+        std::cout << +v << std::endl;
+    }, eld::ignore_enums);
 
     eld::detail::filter<TupleFeed, std::is_fundamental>{};
 
