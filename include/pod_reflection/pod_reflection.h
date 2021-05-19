@@ -613,7 +613,7 @@ namespace eld
     }
 
     template<size_t I, typename TupleFeed, typename POD>
-    pod_element_t<I, POD, TupleFeed> &get(POD &pod, ignore_enums_t)
+    pod_element_t<I, POD, TupleFeed, ignore_enums_t> &get(POD &pod, ignore_enums_t)
     {
         static_assert(is_valid_pod<TupleFeed, POD, ignore_enums_t>(),
                       "Invalid POD struct: possibly contains bitfields");
@@ -643,7 +643,7 @@ namespace eld
     }
 
     template<size_t I, typename TupleFeed, typename POD>
-    const pod_element_t<I, POD, TupleFeed> &get(const POD &pod, ignore_enums_t)
+    const pod_element_t<I, POD, TupleFeed, ignore_enums_t> &get(const POD &pod, ignore_enums_t)
     {
         static_assert(is_valid_pod<TupleFeed, POD, ignore_enums_t>(),
                       "Invalid POD struct: possibly contains bitfields");
@@ -666,7 +666,7 @@ namespace eld
         size_t for_each(POD &pod, F &&func, index_sequence<Indx...>, ignore_enums_t)
         {
             auto f = std::forward<F>(func);
-            return (int) std::initializer_list<int>{(f(get<Indx, TupleFeed>(pod), ignore_enums_t()), 0)...}.size();
+            return (int) std::initializer_list<int>{(f(get<Indx, TupleFeed>(pod, ignore_enums)), 0)...}.size();
         }
     }
 
