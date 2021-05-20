@@ -520,7 +520,7 @@ namespace eld
         {
             return get_pod_offsets<POD, TupleFeed, IgnoreEnums>(
                     combine(offsets, /*TODO: calculate current*/
-                            calc_offset<CurIndex, POD, TupleFeed>::value(offsets)),
+                            calc_offset<CurIndex, POD, TupleFeed, IgnoreEnums>::value(offsets)),
                     is_equal<CurIndex + 1, pod_size<POD>::value>());
         }
 
