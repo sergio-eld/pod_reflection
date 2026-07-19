@@ -1,3 +1,6 @@
+This repo has been archived and will no longer be supported.  
+See https://github.com/sergio-eld/omnirefl for seamless reflection before C++26.
+____
 # pod_reflection
 This is a simple C++ one-header STL based library implementing reflection for POD data types.
 
